@@ -1,0 +1,6 @@
+- [Datahub languages](https://datahub.io/core/language-codes)
+- [Datahub country codes](https://datahub.io/core/country-codes)
+- [Datahub country list](https://datahub.io/core/country-list)
+
+Improved reference, to support Script variants (Hans vs Hant and such):
+https://www.w3.org/International/articles/bcp47/

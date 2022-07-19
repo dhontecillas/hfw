@@ -1,0 +1,11 @@
+{{ define "title" }}Confirm your email{{ end }}
+{{ define "content" }}
+{{ end }}
+
+Please check your email to complete your registration.
+<hr>
+{{ if .error }}
+    An error happened: <b>{{ .error }}</b>
+{{ else }}
+    Your email: <b>{{ .email }}</b>
+{{ end }}

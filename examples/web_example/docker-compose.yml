@@ -1,0 +1,18 @@
+version: "3"
+services:
+  postgresql:
+    container_name: "webexample_posgresql"
+    domainname: "postgresql"
+    image: "postgres:latest"
+    ports:
+      - "35432:5432"
+    environment:
+      - "POSTGRES_PASSWORD=webexamplepwd"
+      - "POSTGRES_USER=webexample"
+      - "POSTGRES_DB=webexample"
+  redis:
+    container_name: "webexample_redis"
+    domainname: "redis"
+    image: "redis:latest"
+    ports:
+      - "36379:6379"

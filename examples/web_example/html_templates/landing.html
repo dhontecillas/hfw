@@ -1,0 +1,23 @@
+<head>
+    <title>HFW web example</title>
+</head>
+
+<body>
+    <h1>HFW Web Example</h1>
+
+    <p>See the <a href="https://github.com/dhontecillas/hfw/tree/main/examples/web_example">Web Example Documentation</a> about this example</p>
+
+
+    {{ if .userID }}
+        You are logged in with userID: {{ .userID }}
+    {{ else }}
+    <p>
+        You can try to register a user going to
+        <a href="/users/register">register pager</a>
+        and you will be able to see in the console
+        the email sent for new created user with its
+        activation link.
+    </p>
+    {{ end }}
+</body>
+

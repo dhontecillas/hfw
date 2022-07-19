@@ -1,0 +1,12 @@
+{{ template "main.html" . }}
+{{ define "title" }}T2{{ end }}
+{{ define "content" }}
+    <h2>{{ .dbg_msg }}</h2>
+
+    {{ if .userID }}
+    <form action="/users/logout" method="POST">
+        <button label="logout"></button>
+    </form>
+    {{ end }}
+    {{ template "register.html" . }}
+{{ end }}

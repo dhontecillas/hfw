@@ -1,0 +1,21 @@
+{{ define "title" }}Register{{ end }}
+{{ define "content" }}
+    <hr>
+    <form method="POST">
+        <input type="email">Email</input>
+        <input type="password"></input>
+    </form>
+    </hr>
+{{ end }}
+    <hr>
+    <form method="POST">
+        Email: <input type="email" name="email">
+        <br>
+        Password: <input type="password" name="password1">
+        <br>
+        Repeat Password: <input type="password" name="password2">
+        <br>
+        {{ .csrf_token }}
+        <button type="submit">Register</button>
+    </form>
+    <hr>

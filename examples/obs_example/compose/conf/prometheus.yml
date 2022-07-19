@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+  external_labels:
+    monitor: 'example_monitor'
+
+scrape_configs:
+  - job_name: 'obs_example'
+    scrape_interval: 5s
+    metrics_path: '/prom_metrics'
+    static_configs:
+      - targets: ['172.17.0.1:9876']
+        labels:
+          app: 'obs_example'
