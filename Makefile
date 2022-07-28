@@ -1,4 +1,4 @@
-PACKAGES         ?= $(shell go list ./... | grep -v vendor | grep -v gopath)
+PACKAGES         ?= $(shell go list ./... | grep -v vendor | grep -v gopath | tr '\n' ' ')
 GOTOOLS          ?= github.com/GeertJohan/fgt\
 					golang.org/x/tools/cmd/goimports\
 					github.com/kisielk/errcheck \
@@ -80,21 +80,18 @@ check: test lint
 .PHONY: check
 
 coverage: tools
+	docker-compose -f docker-compose.test.yml down; sleep 4; \
 	docker-compose -f docker-compose.test.yml up -d && sleep 4 && \
 	export TESTDB_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_db 5432 | cut -d ':' -f 2) && \
 	export TESTREDIS_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_redis 6279 | cut -d ':' -f 2) && \
 	docker run -v $$PWD/testing/migrations:/migrations --network host migrate/migrate -path=/migrations/ -database postgres://hfwtest:test@localhost:$$TESTDB_PORT/hfwtest?sslmode=disable up && \
 	export NOTIFICATIONS_TEMPLATES_DIR=$$(pwd)/pkg/notifications/templates && \
-	mkdir -p coverage && \
 	mkdir -p docs/coverage && \
-	$(foreach pkg,$(PACKAGES),\
-	go test $(pkg) -coverprofile="coverage/$(shell echo $(pkg) | tr "\/" _)" -coverpkg=$(go list ./... | grep -v /assets/ | paste -sd "," -) -covermode=set;)
-	gocovmerge coverage/* > coverage/aggregate.coverprofile
-	go tool cover -html=coverage/aggregate.coverprofile -o docs/coverage/coverage.html
+	go test -coverprofile=coverage.cov $(PACKAGES) && \
+	go tool cover -html=coverage.cov -o docs/coverage/coverage.html
 	@echo ----------------------------------------
-	@echo COVERAGE IS AT: $$(go tool cover -func=coverage/aggregate.coverprofile | tail -n 1 | rev | cut -d" " -f1 | rev)
+	@echo COVERAGE IS AT: $$(go tool cover -func=coverage.cov | tail -n 1 | rev | cut -d" " -f1 | rev)
 	@echo ----------------------------------------
-	rm -rf coverage
 .PHONY: coverage
 
 viewcoverage: coverage
