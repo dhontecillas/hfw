@@ -1,4 +1,5 @@
 # **HFW**: Handy FrameWork
+![Coverage](https://img.shields.io/badge/Coverage-22.9%25-red)
 
 Go framework for API and Web development.
 
