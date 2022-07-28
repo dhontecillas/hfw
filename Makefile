@@ -88,6 +88,7 @@ coverage: tools
 	export NOTIFICATIONS_TEMPLATES_DIR=$$(pwd)/pkg/notifications/templates && \
 	mkdir -p docs/coverage && \
 	go test -coverprofile=coverage.cov $(PACKAGES) && \
+	go tool cover -func=coverage.cov -o coverage.out
 	go tool cover -html=coverage.cov -o docs/coverage/coverage.html
 	@echo ----------------------------------------
 	@echo COVERAGE IS AT: $$(go tool cover -func=coverage.cov | tail -n 1 | rev | cut -d" " -f1 | rev)
