@@ -1,4 +1,8 @@
-package bundler
+// Package appreload allows to detect changes in the source code for
+// a Go application and rebuild the executable. In case of success it
+// can kill the previous running version, and launch the newly created
+// executable.
+package appreload
 
 import (
 	"fmt"
