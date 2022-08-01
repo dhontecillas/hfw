@@ -44,7 +44,7 @@ type MigrationFiles map[string]MigrationPair
 // UpdateMigrations finds the existing migrations in dstDir,
 // and checks their hashes for changes, adding the new migrations
 // as required. UpdateMigrations changes the existing IDs for
-// their timestamps, so migration can
+// their timestamps, so migration can be executed in order.
 func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 	existing, issues := ListExistingMigrations(dstDir, l)
 
