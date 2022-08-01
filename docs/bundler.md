@@ -7,6 +7,7 @@ assets:
 - `*/html_templates` : those are files that should be stored in the server, in an
     accessible place for the app to load them and use them to render the ouptut
 - `*/notifications/templates` : those files are collected, and used to send notifications
+- `*/migrations` : database migration files with a name matching the format: `[number]_[descriptive_name].[up|down].sql` that are used by the `github.com/golang-migrate/migrate` package.
 
 
 ## The "bundling" process
