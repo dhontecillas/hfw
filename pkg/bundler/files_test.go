@@ -3,6 +3,7 @@ package bundler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -74,10 +75,21 @@ func TestCopyDir(t *testing.T) {
 		return
 	}
 
+	content, err := ioutil.ReadFile(filepath.Join(dstDir, "a", "b", "c", "doah.txt"))
+	if err != nil {
+		t.Errorf("cannot read copied file")
+		return
+	}
+	if string(content) != "doah" {
+		t.Errorf("copied content do not match")
+		return
+	}
+
 	err = CopyDir(filepath.Join(srcDir, "a", "b", "c"),
 		filepath.Join(srcDir, "a", "b", "d"))
 	if err != nil {
 		t.Errorf("cannot copy to a sibling directory")
 		return
 	}
+
 }
