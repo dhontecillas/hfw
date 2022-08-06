@@ -1,14 +1,13 @@
 # **HFW***'s Bundler
 
-The `bundler` package identifies certain paths as containing static
-assets:
+The `bundler` package identifies certain paths as containing static assets:
 
 - `*/static` : files that should be served as they are, without going through the app
 - `*/html_templates` : those are files that should be stored in the server, in an
     accessible place for the app to load them and use them to render the ouptut
 - `*/notifications/templates` : those files are collected, and used to send notifications
-- `*/migrations` : database migration files with a name matching the format: `[number]_[descriptive_name].[up|down].sql` that are used by the `github.com/golang-migrate/migrate` package.
-
+- `*/migrations` : database migration files with a name matching the format: `[number]_[descriptive_name].[up|down].sql` that are used by the `github.com/golang-migrate/migrate`
+- `/config/*.yaml` : config files that can 
 
 ## The "bundling" process
 
@@ -18,21 +17,17 @@ deployed to a server.
 It consists on the following directories:
 
 - `app` : The place where the app executable will be put, with the files that the
-    app must be able to acces:
-    - `app/dbmigrations` : the collected migration files, that can be run before
+    app must be able to access:
+    - `app/dbmigrations`: the collected migration files, that can be run before
         start the application (be careful when launching several instances of
         the same app, as concurrency has not been tested: in that case it might
         be better to run migrations as a separate initial process when doing a
         new deployment).
-    - `app/data`: tempaltes to be used by the app
+    - `app/data`: templates to be used by the app
         - `app/data/html_templates`: html templates to render
         - `app/data/notifications/templates`: templates to be used for messages
+    - `app/config`: config files to be used at the startup of the 
 - `static` : A directory containing all the collected static files, in a single place, so we can put them in a place to be directly served by an http server, or some CDN
-
-### Gathering files
-
-Be careful of not storing the bundle under a subdir that is in the path of the files
-to collect or you would end with a recursive file structure.
 
 
 ### Compiling the executable
@@ -56,6 +51,8 @@ As in the compile step, this is a dirty hardcoded call to the `tar` tool using
 
 There are several config options that allows us to tweak what we want the bundler to do.
 Those can be found in `pkg/bundler/cmd.go`.
+
+- `bund
 
 ### Migrations
 
