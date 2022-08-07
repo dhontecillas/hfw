@@ -20,7 +20,7 @@ const (
 	TestDBPort     = "TESTDB_PORT"
 	TestDBName     = "TESTDB_NAME"
 	TestDBHost     = "TESTDB_HOST"
-	TestDBUser     = "TESTDB_PASSWORD"
+	TestDBUser     = "TESTDB_USER"
 	TestDBPassword = "TESTDB_PASSWORD"
 )
 

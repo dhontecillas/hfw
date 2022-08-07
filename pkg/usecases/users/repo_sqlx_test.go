@@ -2,6 +2,7 @@ package users
 
 import (
 	"testing"
+	"time"
 
 	hfwtest "github.com/dhontecillas/hfw/testing"
 
@@ -44,7 +45,7 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		return
 	}
 
-	var zeroTime time.time
+	var zeroTime time.Time
 	if u.Created == zeroTime {
 		t.Errorf("empty created time")
 		return

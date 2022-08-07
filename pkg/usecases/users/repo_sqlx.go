@@ -285,11 +285,11 @@ FOR UPDATE
 	consumeQ := `
 UPDATE
 	user_registration_requests
-SET consumed=NOW()
+SET consumed=$2
 WHERE
 	token=$1
 `
-	if _, err := tx.Exec(consumeQ, token); err != nil {
+	if _, err := tx.Exec(consumeQ, token, now); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			r.ins.L.Err(rbErr, "rollback failed")
 		}
@@ -308,10 +308,10 @@ VALUES(
 	$1
 	,$2
 	,$3
-	,NOW()
+	,$4
 )
 `
-	if _, err := tx.Exec(createUserQ, id.ToUUID(), rq.email, rq.password); err != nil {
+	if _, err := tx.Exec(createUserQ, id.ToUUID(), rq.email, rq.password, now); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			r.ins.L.Err(rbErr, "rollback failed")
 		}
@@ -327,7 +327,9 @@ VALUES(
 	}
 
 	return &User{
-		Email: rq.email,
+		ID:      id,
+		Email:   rq.email,
+		Created: now,
 	}, nil
 }
 
