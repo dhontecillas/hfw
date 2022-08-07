@@ -2,8 +2,11 @@ package users
 
 import (
 	"testing"
+	"time"
 
 	hfwtest "github.com/dhontecillas/hfw/testing"
+
+	"github.com/dhontecillas/hfw/pkg/ids"
 )
 
 func Test_RepoSQLX_HappyPath(t *testing.T) {
@@ -33,6 +36,18 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 
 	if u.Email != email {
 		t.Errorf("email, want: %s, got: %s", email, u.Email)
+		return
+	}
+
+	var emptyID ids.ID
+	if u.ID == emptyID {
+		t.Errorf("empty user id")
+		return
+	}
+
+	var zeroTime time.Time
+	if u.Created == zeroTime {
+		t.Errorf("empty created time")
 		return
 	}
 
