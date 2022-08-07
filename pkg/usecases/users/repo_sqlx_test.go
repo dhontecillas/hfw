@@ -53,6 +53,7 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		return
 	}
 
+	var emptyID ids.ID
 	if u.ID == emptyID {
 		t.Errorf("empty user id")
 		return
