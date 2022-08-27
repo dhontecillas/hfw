@@ -12,8 +12,9 @@ import (
 
 // MailgunConfig has the parameters to use the Mailgun service
 type MailgunConfig struct {
-	Domain string
-	Key    string
+	Domain      string
+	Key         string
+	UseEUServer bool
 }
 
 // MailgunMailer implements the Mailer interface to send emails using Mailgun service
@@ -29,8 +30,12 @@ func NewMailgunMailer(conf MailgunConfig) (*MailgunMailer, error) {
 	if len(conf.Domain) == 0 {
 		return nil, fmt.Errorf("missing Mailgun Domain")
 	}
+	client := mailgun.NewMailgun(conf.Domain, conf.Key)
+	if conf.UseEUServer {
+		client.SetAPIBase(mailgun.APIBaseEU)
+	}
 	return &MailgunMailer{
-		client: mailgun.NewMailgun(conf.Domain, conf.Key),
+		client: client,
 	}, nil
 }
 
