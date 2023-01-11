@@ -26,3 +26,8 @@ func (m *RoundcubeMailer) Send(e Email) error {
 	err := smtp.SendMail(smtpServer, nil, e.From.Address, []string{e.To.Address}, []byte(msg))
 	return err
 }
+
+// Sender returns the default sender address and name
+func (m *RoundcubeMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

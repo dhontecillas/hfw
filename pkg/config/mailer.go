@@ -16,8 +16,10 @@ const (
 	consoleMailer   string = "console"
 	nopMailer       string = "nop"
 
-	confKeyMailerPreferred string = "mailer.preferred"
-	confKeyMailerLogs      string = "mailer.logs"
+	confKeyMailerPreferred   string = "mailer.preferred"
+	confKeyMailerLogs        string = "mailer.logs"
+	confKeyMailerFromAddress string = "mailer.from.address"
+	confKeyMailerFromName    string = "mailer.from.name"
 )
 
 // MailerConfig contains the selected mailer configuration
@@ -25,6 +27,8 @@ type MailerConfig struct {
 	Name          string
 	LogSentEmails bool
 	ConfPrefix    string
+	FromAddress   string
+	FromName      string
 }
 
 func (m *MailerConfig) String() string {
@@ -56,10 +60,25 @@ func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, err
 		panic(msg)
 	}
 
+	confKey = confPrefix + confKeyMailerFromAddress
+	if !viper.IsSet(confKey) {
+		msg := fmt.Sprintf("cannot read mailer sender address: %s", confKey)
+		ins.L.Panic(msg)
+		panic(msg)
+	}
+
+	fromAddress := viper.GetString(confKey)
+	fromName := viper.GetString(confPrefix + confKeyMailerFromName)
+	if fromName == "" {
+		fromName = fromAddress
+	}
+
 	return &MailerConfig{
 		Name:          selectedMailer,
 		LogSentEmails: viper.GetBool(confPrefix + confKeyMailerLogs),
 		ConfPrefix:    confPrefix,
+		FromAddress:   fromAddress,
+		FromName:      fromName,
 	}, nil
 }
 
@@ -86,7 +105,8 @@ func CreateMailer(ins *obs.Insighter, mailerConf *MailerConfig) (mailer.Mailer, 
 	case nopMailer:
 		m = mailer.NewNopMailer()
 	default:
-		m, err = newSendgridMailer(mailerConf.ConfPrefix)
+		m, err = newSendgridMailer(mailerConf.ConfPrefix,
+			mailerConf.FromAddress, mailerConf.FromName)
 	}
 
 	if err != nil {

@@ -60,6 +60,8 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 		scanDirs := v.GetStringSlice(confPrefix + KeyBundlerPackExtraDirs)
 		projDir, err := os.Getwd()
 		if err == nil {
+            // TODO: we might have a conf variant set! we must use
+            // the hardcoded "prod" only as a fallback
 			err = PrepareBundle(projDir, bundleDstDir, scanDirs, "prod")
 		}
 		if err != nil {

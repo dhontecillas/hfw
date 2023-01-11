@@ -25,3 +25,8 @@ func (m *MockMailer) Send(e Email) error {
 	})
 	return nil
 }
+
+// Sender returns the default sender address and name
+func (m *MockMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

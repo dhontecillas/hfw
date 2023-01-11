@@ -35,3 +35,8 @@ func (m *LoggerMailer) Send(e Email) error {
 	}
 	return err
 }
+
+// Sender proxies the call to the underlying mailer
+func (m *LoggerMailer) Sender() (string, string) {
+	return m.wrapped.Sender()
+}

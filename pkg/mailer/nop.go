@@ -13,3 +13,8 @@ func NewNopMailer() *NopMailer {
 func (m *NopMailer) Send(e Email) error {
 	return nil
 }
+
+// Sender returns the default sender address and name
+func (m *NopMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

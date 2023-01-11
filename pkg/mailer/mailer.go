@@ -58,5 +58,11 @@ func (e Email) String() string {
 
 // Mailer is the general interface for sending emails
 type Mailer interface {
+	// Send sends an email. Depending on the implementation
+	// might require that the e.From.Address matches the one
+	// returned from the Sender call.
 	Send(e Email) error
+	// Sender returns the address and name of the default
+	// sender for this maile
+	Sender() (string, string)
 }

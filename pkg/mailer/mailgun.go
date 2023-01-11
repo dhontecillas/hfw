@@ -54,3 +54,8 @@ func (m *MailgunMailer) Send(e Email) error {
 	}
 	return nil
 }
+
+// Sender returns the default sender address and name
+func (m *MailgunMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

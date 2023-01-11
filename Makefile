@@ -59,7 +59,6 @@ test:
 	echo "STOPED REDIS $$TESTREDIS_NAME" ; \
 	exit $$TEST_RESULT
 
-
 .PHONY: test
 
 dctest:

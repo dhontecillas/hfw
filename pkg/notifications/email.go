@@ -9,17 +9,12 @@ import (
 // EmailCarrier contains the data to send emails
 type EmailCarrier struct {
 	Mailer mailer.Mailer
-
-	FromAddress string
-	FromName    string
 }
 
 // NewEmailCarrier creates a new email carrier using a given Mailer
 func NewEmailCarrier(mailSender mailer.Mailer) *EmailCarrier {
 	return &EmailCarrier{
-		Mailer:      mailSender,
-		FromAddress: "noreply@example.com",
-		FromName:    "No Reply",
+		Mailer: mailSender,
 	}
 }
 
@@ -47,13 +42,12 @@ func (c *EmailCarrier) Send(content *ContentSet, data map[string]interface{}) er
 		toName = toAddress
 	}
 
-	fromName, ok := data["from_name"].(string)
-	if !ok {
-		fromName = c.FromName
+	fromAddress, fromName := c.Mailer.Sender()
+	if name, ok := data["from_name"].(string); ok {
+		fromName = name
 	}
-	fromAddress, ok := data["from_address"].(string)
-	if !ok {
-		fromAddress = c.FromAddress
+	if address, ok := data["from_address"].(string); ok {
+		fromAddress = address
 	}
 
 	emailMessage := mailer.Email{

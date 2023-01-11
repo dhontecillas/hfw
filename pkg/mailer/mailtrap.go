@@ -51,3 +51,8 @@ func (m *mailtrapMailer) Send(e Email) error {
 	err := smtp.SendMail(smtpServer, auth, e.From.Address, []string{e.To.Address}, []byte(msg))
 	return err
 }
+
+// Sender returns the default sender address and name
+func (m *mailtrapMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

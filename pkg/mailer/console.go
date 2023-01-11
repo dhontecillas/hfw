@@ -17,3 +17,7 @@ func (m *ConsoleMailer) Send(e Email) error {
 	fmt.Printf("Email SENT: %s\n", e)
 	return nil
 }
+
+func (m *ConsoleMailer) Sender() (string, string) {
+	return "noreply@example.com", "No Reply"
+}

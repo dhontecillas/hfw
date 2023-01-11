@@ -21,10 +21,12 @@ func configSendGrid(confPrefix string) (mailer.SendGridConfig, error) {
 	}, nil
 }
 
-func newSendgridMailer(confPrefix string) (mailer.Mailer, error) {
+func newSendgridMailer(confPrefix string, from string, name string) (mailer.Mailer, error) {
 	conf, err := configSendGrid(confPrefix)
 	if err != nil {
 		return nil, err
 	}
+	conf.FromAddress = from
+	conf.FromName = name
 	return mailer.NewSendGridMailer(conf)
 }
