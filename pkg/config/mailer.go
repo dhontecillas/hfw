@@ -32,7 +32,8 @@ type MailerConfig struct {
 }
 
 func (m *MailerConfig) String() string {
-	return fmt.Sprintf("Mailer %s (log enabled: %t)", m.Name, m.LogSentEmails)
+	return fmt.Sprintf("Mailer %s (log enabled: %t) %s <%s>",
+		m.Name, m.LogSentEmails, m.FromName, m.FromAddress)
 }
 
 // ReadMailerConfig returns the name of a mailer and a boolean to select
@@ -66,7 +67,6 @@ func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, err
 		ins.L.Panic(msg)
 		panic(msg)
 	}
-
 	fromAddress := viper.GetString(confKey)
 	fromName := viper.GetString(confPrefix + confKeyMailerFromName)
 	if fromName == "" {
@@ -105,7 +105,7 @@ func CreateMailer(ins *obs.Insighter, mailerConf *MailerConfig) (mailer.Mailer, 
 	case nopMailer:
 		m = mailer.NewNopMailer()
 	default:
-		m, err = newSendgridMailer(mailerConf.ConfPrefix,
+		m, err = newSendgridMailer(ins, mailerConf.ConfPrefix,
 			mailerConf.FromAddress, mailerConf.FromName)
 	}
 
