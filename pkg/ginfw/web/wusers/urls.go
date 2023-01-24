@@ -43,11 +43,11 @@ func Routes(r gin.IRouter, actionPaths ActionPaths) {
 
 // ActionPaths indicates the path to where to
 // redierect from registration emails
-// 	* BasePath: fallback, if other paths are not explictily set
-//  * ActivationPath: the path to were to redirect when activating
-//		a user (the token param will be appended to it)
-//  * ResetPasswordPath: the path to were to redirect a user with'
-// 		a reset password token (the token param will be appended to it)
+//   - BasePath: fallback, if other paths are not explictily set
+//   - ActivationPath: the path to were to redirect when activating
+//     a user (the token param will be appended to it)
+//   - ResetPasswordPath: the path to were to redirect a user with'
+//     a reset password token (the token param will be appended to it)
 type ActionPaths struct {
 	BasePath          string
 	ActivationPath    string
@@ -101,9 +101,15 @@ func buildController(c *gin.Context, actionPaths *ActionPaths) *users.EmailRegis
 	ed := ginfw.ExtServices(c)
 	tokenSalt := fmt.Sprintf("%s%d", c.Request.Host, time.Now().Unix())
 	repo := users.NewRepoSQLX(ed.Ins, ed.SQL, tokenSalt)
-	scheme := "https"
-	if strings.Contains(c.Request.Host, "localhost") {
-		scheme = "http" // for localhost, drop tls
+	// the default is https, and we do not trust the Request Host field
+	// because we could be running behind a proxy (like nginx)
+	scheme := c.Request.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		if strings.Contains(c.Request.Host, "localhost") {
+			scheme = "http" // for localhost, drop tls
+		} else {
+			scheme = "https"
+		}
 	}
 
 	hostInfo := users.HostInfo{
