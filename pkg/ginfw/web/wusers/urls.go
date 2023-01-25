@@ -245,6 +245,10 @@ func ResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 	p := ResetPasswordWithTokenPayload{}
 	err := c.ShouldBindWith(&p, binding.Form)
 	if err != nil {
+		deps := ginfw.ExtServices(c)
+		deps.Ins.L.
+			WarnMsg("cannot bind the payload (redirecting to password reset form):").
+			Str("error", err.Error()).Send()
 		c.Redirect(http.StatusFound, actionPaths.BasePath+"/"+PathRequestPasswordReset)
 		c.Abort()
 		return
@@ -253,6 +257,11 @@ func ResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 	if err := regUC.ResetPasswordWithToken(p.Token, p.Password); err != nil {
 		// TODO: Instead of TemplResetPasswordTokenSent, create an error
 		// template to show what happened.
+		deps := ginfw.ExtServices(c)
+		deps.Ins.L.
+			WarnMsg("cannot ResetPasswordWithToken:").
+			Str("token", p.Token).
+			Str("error", err.Error())
 		c.HTML(http.StatusInternalServerError, TemplResetPasswordTokenSent, gin.H{})
 	}
 	c.HTML(http.StatusOK, TemplResetPasswordSuccess, gin.H{})
