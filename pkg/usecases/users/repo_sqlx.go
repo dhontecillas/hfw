@@ -252,20 +252,19 @@ FOR UPDATE
 	}
 	rq := registrationRequest{}
 	var consumed *time.Time
-	err = row.Scan(
+	if err = row.Scan(
 		&rq.token,
 		&rq.email,
 		&rq.requested,
 		&rq.expires,
 		&rq.password,
 		&consumed,
-	)
-	if consumed != nil {
-		rq.consumed = *consumed
-	}
-	if err != nil {
+	); err != nil {
 		r.ins.L.Err(err, fmt.Sprintf("cannot scan row %s", err.Error()))
 		return nil, err
+	}
+	if consumed != nil {
+		rq.consumed = *consumed
 	}
 
 	if !rq.consumed.IsZero() {
@@ -464,11 +463,11 @@ WHERE
 	consumeTokenQ := `
 UPDATE user_resetpasswords
 SET
-	consumed = NOW()
+	consumed = $1
 WHERE
-	token = $1
+	token = $2
 `
-	if _, err := tx.Exec(consumeTokenQ, token); err != nil {
+	if _, err := tx.Exec(consumeTokenQ, now, token); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			r.ins.L.Err(rbErr, "rollback failed")
 		}

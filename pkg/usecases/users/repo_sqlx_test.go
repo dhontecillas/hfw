@@ -1,6 +1,8 @@
 package users
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -10,12 +12,24 @@ import (
 )
 
 func Test_RepoSQLX_HappyPath(t *testing.T) {
-	email := "foo@example.com"
-	pass := "bar"
+	email, pass := hfwtest.RandomEmailAndPassword()
 
 	deps := hfwtest.BuildExternalServices()
 
 	r := NewRepoSQLX(deps.Insighter(), deps.SQL, "tokenSalt")
+
+	u := r.GetUserByEmail(email)
+	if u != nil {
+		t.Errorf("the user should not exist in the database")
+		return
+	}
+
+	var emptyID ids.ID
+	u = r.GetUserByID(emptyID)
+	if u != nil {
+		t.Errorf("the user with empty id should not exist")
+		return
+	}
 
 	token, err := r.CreateInactiveUser(email, pass)
 	if err != nil {
@@ -28,7 +42,7 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		return
 	}
 
-	u, err := r.ActivateUser(token)
+	u, err = r.ActivateUser(token)
 	if err != nil {
 		t.Errorf("cannot activate user: %s", err)
 		return
@@ -39,15 +53,33 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		return
 	}
 
-	var emptyID ids.ID
 	if u.ID == emptyID {
 		t.Errorf("empty user id")
+		return
+	}
+
+	uByID := r.GetUserByID(u.ID)
+	if uByID == nil || uByID.ID != u.ID {
+		t.Errorf("existing user cannot be fetched by ID")
 		return
 	}
 
 	var zeroTime time.Time
 	if u.Created == zeroTime {
 		t.Errorf("empty created time")
+		return
+	}
+
+	// check we cannot create a user with the same email:
+	_, err = r.CreateInactiveUser(email, pass)
+	if err == nil {
+		t.Errorf("should not be able to create a user with the same email")
+		return
+	}
+
+	_, _, err = r.CreatePasswordResetRequest("baduser@example.com")
+	if err == nil {
+		t.Errorf("non existing user should return an error")
 		return
 	}
 
@@ -62,7 +94,15 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		return
 	}
 	if len(pwdToken) == 0 {
-		t.Errorf("expected")
+		t.Errorf("expected a password token for completing a reset password")
+		return
+	}
+
+	// a random token does not work for resetting the password:
+	badTkn := sha256.Sum256([]byte("randombadtoken"))
+	_, err = r.ResetPassword(hex.EncodeToString(badTkn[:]), "foo")
+	if err == nil {
+		t.Errorf("should not find a user with a random bad token")
 		return
 	}
 
