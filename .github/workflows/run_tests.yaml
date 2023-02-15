@@ -5,9 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "get go version"
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: ^1.18
+          go-version: ^1.19
 
       - name: "checkout repo"
         uses: actions/checkout@v3
@@ -19,7 +19,9 @@ jobs:
         run: go get -t -u ./...
 
       - name: "run test"
-        run: make coverage
+        env:
+          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+        run: make cicoverage
 
       - name: Go Coverage Badge
         uses: tj-actions/coverage-badge-go@v1.2
