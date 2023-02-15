@@ -85,7 +85,7 @@ func BuildExternalServices(confPrefix string,
 	if err != nil {
 		panic("cannot read notifications config")
 	}
-	notifier, err := CreateNotifications(ins, notificationsConf, mailer)
+	composer, err := CreateNotificationsComposer(ins, notificationsConf, mailer)
 	if err != nil {
 		panic("cannot create notifications")
 	}
@@ -93,5 +93,5 @@ func BuildExternalServices(confPrefix string,
 		insBuilderFn, insFlush,
 		mailer,
 		sql,
-		notifier)
+		composer)
 }

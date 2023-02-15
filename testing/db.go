@@ -70,8 +70,7 @@ func BuildExternalServices() *extdeps.ExternalServices {
 
 	mailer := mailer.NewNopMailer()
 	composer := notifications.NewFileSystemComposer("./pkg/notifications")
-	notifier := notifications.NewNotifications(composer, mailer)
 	flushFn := func() {}
 	return extdeps.NewExternalServices(insBuilderFn, flushFn, mailer,
-		db.NewSQLDB(insBuilderFn(), sqlConf), notifier)
+		db.NewSQLDB(insBuilderFn(), sqlConf), composer)
 }
