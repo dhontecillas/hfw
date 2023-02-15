@@ -19,7 +19,7 @@ jobs:
         run: go get -t -u ./...
 
       - name: "run test"
-        run: make coverage
+        run: make cicoverage
 
       - name: Go Coverage Badge
         uses: tj-actions/coverage-badge-go@v1.2

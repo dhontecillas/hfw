@@ -1,11 +1,14 @@
 PACKAGES         ?= $(shell go list ./... | grep -v vendor | grep -v gopath | tr '\n' ' ')
-GOTOOLS          ?= github.com/GeertJohan/fgt\
-					golang.org/x/tools/cmd/goimports\
+GOTOOLS          ?= github.com/GeertJohan/fgt \
+					golang.org/x/tools/cmd/goimports \
+					golang.org/x/tools/cmd/cover \
 					github.com/kisielk/errcheck \
 					golang.org/x/lint/golint \
 					github.com/wadey/gocovmerge \
 					github.com/golangci/golangci-lint/cmd/golangci-lint@v1.27.0 \
-					honnef.co/go/tools/cmd/staticcheck@latest
+					honnef.co/go/tools/cmd/staticcheck@latest \
+					github.com/mattn/goveralls
+
 
 build:
 	go build -v ./cmd/importer
@@ -22,6 +25,7 @@ lint: tools
 
 tools:
 	go get $(GOTOOLS)
+	go install github.com/mattn/goveralls
 .SILENT: tools
 .PHONY: tools
 
@@ -93,6 +97,9 @@ coverage: tools
 	@echo COVERAGE IS AT: $$(go tool cover -func=coverage.cov | tail -n 1 | rev | cut -d" " -f1 | rev)
 	@echo ----------------------------------------
 .PHONY: coverage
+
+cicoverage: coverage
+	COVERALLS_TOKEN=$$COVERALLS_TOKEN goveralls -coverprofile=coverage.cov
 
 viewcoverage: coverage
 	xdg-open docs/coverage/coverage.html
