@@ -20,7 +20,7 @@ jobs:
 
       - name: "run test"
         env:
-          COVERALLS_TOKEN: ${ secrets.COVERALLS_TOKEN }
+          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
         run: make cicoverage
 
       - name: Go Coverage Badge
