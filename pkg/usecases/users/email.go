@@ -47,6 +47,9 @@ type RegistrationRepo interface {
 	// CheckPassword return the user ID for a user from its email
 	// and password.
 	CheckPassword(email string, password string) (ids.ID, error)
+
+	// DeleteUser deletes a created user
+	DeleteUser(email string) error
 }
 
 // HostInfo contains the required info to construct
