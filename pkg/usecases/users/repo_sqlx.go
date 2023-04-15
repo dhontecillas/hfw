@@ -536,3 +536,18 @@ WHERE
 	err := userID.FromUUID(strID)
 	return userID, err
 }
+
+// DeleteUser hard deletes a user (and all its related
+// data will be deleted too)
+func (r *RepoSQLX) DeleteUser(email string) error {
+	master := r.sqlDB.Master()
+	deleteQ := `
+DELETE FROM users
+WHERE
+    email = $1
+`
+	_, err := master.Exec(deleteQ, email)
+	return err
+	// TODO: depending on the database we could check the RowsAffected
+	// if rows.RowsAffected() == 0, we could return a not found
+}

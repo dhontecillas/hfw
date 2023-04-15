@@ -122,4 +122,15 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 		t.Errorf("cannot login with new password: %s", err.Error())
 		return
 	}
+
+	err = r.DeleteUser(email)
+	if err != nil {
+		t.Errorf("cannot delete user: %s", err.Error())
+		return
+	}
+
+	_, err = r.CheckPassword(email, "baz")
+	if err == nil {
+		t.Errorf("user should noo exist: %s", email)
+	}
 }
