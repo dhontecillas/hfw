@@ -33,12 +33,11 @@ func ReadNotificationsConfig(ins *obs.Insighter, confPrefix string) (*Notificati
 	}, nil
 }
 
-// CreateNotifications create a notifications.Notifier from a provided
+// CreateNotificationsComposer create a notifications.Notifier from a provided
 // configuration.
-func CreateNotifications(ins *obs.Insighter,
+func CreateNotificationsComposer(ins *obs.Insighter,
 	notificationsConf *NotificationsConfig,
-	mailer mailer.Mailer) (notifications.Notifier, error) {
+	mailer mailer.Mailer) (notifications.Composer, error) {
 
-	composer := notifications.NewFileSystemComposer(notificationsConf.NotificationsTemplatesDir)
-	return notifications.NewNotifications(composer, mailer), nil
+	return notifications.NewFileSystemComposer(notificationsConf.NotificationsTemplatesDir), nil
 }

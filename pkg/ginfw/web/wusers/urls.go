@@ -118,7 +118,7 @@ func buildController(c *gin.Context, actionPaths *ActionPaths) *users.EmailRegis
 		ActivationPath:    actionPaths.ActivationPath,
 		ResetPasswordPath: actionPaths.ResetPasswordPath,
 	}
-	return users.NewEmailRegistration(ed.Ins, ed.Notifier, repo, hostInfo)
+	return users.NewEmailRegistration(ed.Ins, ed.Composer, ed.MailSender, repo, hostInfo)
 }
 
 // Register implements the user registration api request
