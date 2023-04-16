@@ -1,8 +1,6 @@
 Improvements
 ------------
 
-- Use `coveralls` to show unit test reports: https://coveralls.io/sign-up
-
 - Simplify the current `pkg/notifications` package, because we do not
     have "carrrier"s right now.
 
@@ -15,7 +13,7 @@ Improvements
     for now.
 
 - When trying to register an existing email, send a warning email to
-the actual user, telling him, that he already has an account.
+  the actual user, telling him, that he already has an account.
 
 - In the logging interface add a way to format strings
 

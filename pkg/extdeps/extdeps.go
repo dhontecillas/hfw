@@ -18,7 +18,7 @@ type ExternalServicesBuilderFn func() *ExternalServices
 type ExtServices struct {
 	MailSender mailer.Mailer
 	SQL        db.SQLDB
-	Notifier   notifications.Notifier
+	Composer   notifications.Composer
 	Ins        *obs.Insighter
 }
 
@@ -28,7 +28,7 @@ func (ed *ExtServices) Clone() *ExtServices {
 	return &ExtServices{
 		MailSender: ed.MailSender,
 		SQL:        ed.SQL,
-		Notifier:   ed.Notifier,
+		Composer:   ed.Composer,
 		Ins:        ed.Ins.Clone(),
 	}
 }

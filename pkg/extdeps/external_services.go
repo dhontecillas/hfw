@@ -14,7 +14,7 @@ import (
 type ExternalServices struct {
 	MailSender mailer.Mailer
 	SQL        db.SQLDB
-	Notifier   notifications.Notifier
+	Composer   notifications.Composer
 
 	// global configured insigher from where we will clone
 	ins      *obs.Insighter
@@ -27,13 +27,13 @@ func NewExternalServices(
 	insighterFlushFn func(),
 	mailSender mailer.Mailer,
 	sql db.SQLDB,
-	notifier notifications.Notifier) *ExternalServices {
+	composer notifications.Composer) *ExternalServices {
 
 	ins := insighterBuilderFn()
 	return &ExternalServices{
 		MailSender: mailSender,
 		SQL:        sql,
-		Notifier:   notifier,
+		Composer:   composer,
 		ins:        ins,
 		insFlush:   insighterFlushFn,
 	}
@@ -58,7 +58,7 @@ func (es *ExternalServices) ExtServices() *ExtServices {
 	return &ExtServices{
 		MailSender: es.MailSender,
 		SQL:        es.SQL,
-		Notifier:   es.Notifier,
+		Composer:   es.Composer,
 		Ins:        es.ins.Clone(),
 	}
 }

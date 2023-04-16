@@ -54,3 +54,8 @@ func (r *NopRegistrationRepo) CheckPassword(email string, password string) (ids.
 	var id ids.ID
 	return id, fmt.Errorf("not implemented")
 }
+
+// DeleteUser deletes an existing user
+func (r *NopRegistrationRepo) DeleteUser(email string) error {
+	return fmt.Errorf("not implemented")
+}

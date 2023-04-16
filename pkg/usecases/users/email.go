@@ -2,9 +2,9 @@ package users
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/dhontecillas/hfw/pkg/ids"
+	"github.com/dhontecillas/hfw/pkg/mailer"
 	"github.com/dhontecillas/hfw/pkg/notifications"
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
@@ -13,6 +13,8 @@ import (
 const (
 	NotifRequestRegistration  string = "users_requestregistration"
 	NotifRequestPasswordReset string = "users_requestpasswordreset"
+
+	carrierEmail = "email"
 )
 
 // RegistrationRepo defines the data access interface to
@@ -45,6 +47,9 @@ type RegistrationRepo interface {
 	// CheckPassword return the user ID for a user from its email
 	// and password.
 	CheckPassword(email string, password string) (ids.ID, error)
+
+	// DeleteUser deletes a created user
+	DeleteUser(email string) error
 }
 
 // HostInfo contains the required info to construct
@@ -62,25 +67,72 @@ type HostInfo struct {
 // EmailRegistration is the controller to handle
 // an email registration flow
 type EmailRegistration struct {
-	ins      *obs.Insighter
-	notifier notifications.Notifier
-	regRepo  RegistrationRepo
-	hostInfo HostInfo
+	ins        *obs.Insighter
+	composer   notifications.Composer
+	mailSender mailer.Mailer
+	regRepo    RegistrationRepo
+	hostInfo   HostInfo
 }
 
 // NewEmailRegistration creates a new EmailRegistration
 // controller
 func NewEmailRegistration(
 	ins *obs.Insighter,
-	notifier notifications.Notifier,
+	composer notifications.Composer,
+	mailSender mailer.Mailer,
 	regRepo RegistrationRepo,
 	hostInfo HostInfo) *EmailRegistration {
 	return &EmailRegistration{
-		ins:      ins,
-		notifier: notifier,
-		regRepo:  regRepo,
-		hostInfo: hostInfo,
+		ins:        ins,
+		composer:   composer,
+		mailSender: mailSender,
+		regRepo:    regRepo,
+		hostInfo:   hostInfo,
 	}
+}
+
+func (r *EmailRegistration) sendMail(email string, notification string,
+	data map[string]interface{}) error {
+
+	content, err := r.composer.Render(notification, data, carrierEmail)
+	if err != nil {
+		// TODO: wrap the error here
+		return err
+	}
+
+	subject, ok := content.Texts["subject"]
+	if !ok {
+		return fmt.Errorf("missing 'subject' content")
+	}
+	textBody, ok := content.Texts["content"]
+	if !ok {
+		return fmt.Errorf("missing 'text body' content")
+	}
+	htmlBody, ok := content.HTMLs["content"]
+	if !ok {
+		return fmt.Errorf("missing 'html body' content")
+	}
+
+	fromName, fromAddress := r.mailSender.Sender()
+	emailMessage := mailer.Email{
+		To: mailer.User{
+			Name:    email,
+			Address: email,
+		},
+		From: mailer.User{
+			Name:    fromName,
+			Address: fromAddress,
+		},
+		Subject: subject,
+		HTML:    htmlBody,
+		Text:    textBody,
+	}
+
+	if sendEmailErr := r.mailSender.Send(emailMessage); err != nil {
+		r.ins.L.Err(sendEmailErr, "cannot send registration message")
+		return fmt.Errorf("%w %s", ErrNotificationFailed, sendEmailErr)
+	}
+	return nil
 }
 
 // Register creates an inactive user, and send a notification (email),
@@ -95,28 +147,14 @@ func (r *EmailRegistration) Register(email string, password string) error {
 		r.ins.L.Err(e, "cannot create innactive user")
 		return fmt.Errorf("cannot create innactive user: %w", e)
 	}
-	_, errors := r.notifier.Send(NotifRequestRegistration,
-		map[string]interface{}{
-			"to_address":       email,
-			"activation_token": token,
-			"scheme":           r.hostInfo.Scheme,
-			"host":             r.hostInfo.Host,
-			"path":             r.hostInfo.ActivationPath,
-		}, []string{notifications.CarrierEmail})
 
-	var b strings.Builder
-	for idx, notifErr := range errors {
-		// TODO: fix the formatting of the error
-		r.ins.L.Err(notifErr, "cannot send registration message")
-		if idx > 0 {
-			b.WriteString(", ")
-		}
-		b.WriteString(notifErr.Error())
-	}
-	if b.Len() > 0 {
-		return fmt.Errorf("%w %s", ErrNotificationFailed, b.String())
-	}
-	return nil
+	return r.sendMail(email, NotifRequestRegistration, map[string]interface{}{
+		"to_address":       email,
+		"activation_token": token,
+		"scheme":           r.hostInfo.Scheme,
+		"host":             r.hostInfo.Host,
+		"path":             r.hostInfo.ActivationPath,
+	})
 }
 
 // Activate completes the activation of a registered user.
@@ -135,14 +173,15 @@ func (r *EmailRegistration) RequestResetPassword(email string) error {
 	if err != nil {
 		return err
 	}
-	r.notifier.Send(NotifRequestPasswordReset,
+
+	return r.sendMail(u.Email, NotifRequestPasswordReset,
 		map[string]interface{}{
 			"to_address": u.Email,
 			"token":      token,
 			"scheme":     r.hostInfo.Scheme,
 			"host":       r.hostInfo.Host,
 			"path":       r.hostInfo.ResetPasswordPath,
-		}, []string{notifications.CarrierEmail})
+		})
 	return nil
 }
 

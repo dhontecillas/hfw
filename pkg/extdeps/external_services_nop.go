@@ -25,7 +25,7 @@ func GetNopExternalServices() ExternalServices {
 
 	return ExternalServices{
 		MailSender: mailer.NewNopMailer(),
-		Notifier:   notifications.NewNopNotifier(),
+		Composer:   notifications.NewNopComposer(),
 		ins:        ins,
 	}
 }
