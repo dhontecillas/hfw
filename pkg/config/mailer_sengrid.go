@@ -9,31 +9,38 @@ import (
 	"github.com/spf13/viper"
 )
 
-const confKeySendgridKey string = "sendgrid.key"
+const (
+	confKeySendgridKey         string = "sendgrid.key"
+	confKeySendgridSenderEmail string = "sendgrid.senderemail"
+	confKeySendgridSenderName  string = "sendgrid.sendername"
+)
+
+// SendGridConfig has the parameters to use the SendGrid service
+type SendGridConfig struct {
+	Key string
+}
 
 // configSendGrid fills a SendGridConfig struct from viper parameters
-func configSendGrid(confPrefix string) (mailer.SendGridConfig, error) {
+func configSendGrid(confPrefix string) (SendGridConfig, error) {
 	if !viper.IsSet(confPrefix + confKeySendgridKey) {
-		return mailer.SendGridConfig{}, fmt.Errorf("missing sendgrid Key: %s",
+		return SendGridConfig{}, fmt.Errorf("missing sendgrid Key: %s",
 			confPrefix+confKeySendgridKey)
 	}
-	val := viper.GetString(confPrefix + confKeySendgridKey)
-	return mailer.SendGridConfig{
-		Key: val,
+	key := viper.GetString(confPrefix + confKeySendgridKey)
+
+	return SendGridConfig{
+		Key: key,
 	}, nil
 }
 
 func newSendgridMailer(ins *obs.Insighter, confPrefix string,
 	from string, name string) (mailer.Mailer, error) {
-
 	conf, err := configSendGrid(confPrefix)
 	if err != nil {
 		return nil, err
 	}
-	conf.FromAddress = from
-	conf.FromName = name
 	ins.L.Info(fmt.Sprintf("new sendgrid config %#v", conf))
-	m, err := mailer.NewSendGridMailer(conf)
+	m, err := mailer.NewSendGridMailer(conf.Key, from, name)
 	ins.L.Info(fmt.Sprintf("created mailer: %#v", m))
 	return m, err
 }
