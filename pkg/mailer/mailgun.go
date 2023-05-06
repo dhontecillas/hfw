@@ -10,32 +10,39 @@ import (
 	"github.com/mailgun/mailgun-go/v4"
 )
 
-// MailgunConfig has the parameters to use the Mailgun service
-type MailgunConfig struct {
-	Domain      string
-	Key         string
-	UseEUServer bool
-}
-
 // MailgunMailer implements the Mailer interface to send emails using Mailgun service
 type MailgunMailer struct {
 	client *mailgun.MailgunImpl
+
+	senderEmail string
+	senderName  string
 }
 
 // NewMailgunMailer creates a new Mailer to send emails through Mailgun
-func NewMailgunMailer(conf MailgunConfig) (*MailgunMailer, error) {
-	if len(conf.Key) == 0 {
-		return nil, fmt.Errorf("missing Mailgun Key")
-	}
-	if len(conf.Domain) == 0 {
+func NewMailgunMailer(domain string, key string, senderEmail string,
+	senderName string, useEUServer bool) (*MailgunMailer, error) {
+
+	if len(domain) == 0 {
 		return nil, fmt.Errorf("missing Mailgun Domain")
 	}
-	client := mailgun.NewMailgun(conf.Domain, conf.Key)
-	if conf.UseEUServer {
+	if len(key) == 0 {
+		return nil, fmt.Errorf("missing Mailgun Key")
+	}
+	if len(senderEmail) == 0 {
+		return nil, fmt.Errorf("missing Mailgun Sender Email Address")
+	}
+	if len(senderName) == 0 {
+		senderName = senderEmail
+	}
+
+	client := mailgun.NewMailgun(domain, key)
+	if useEUServer {
 		client.SetAPIBase(mailgun.APIBaseEU)
 	}
 	return &MailgunMailer{
-		client: client,
+		client:      client,
+		senderEmail: senderEmail,
+		senderName:  senderName,
 	}, nil
 }
 
@@ -57,5 +64,5 @@ func (m *MailgunMailer) Send(e Email) error {
 
 // Sender returns the default sender address and name
 func (m *MailgunMailer) Sender() (string, string) {
-	return "noreply@example.com", "No Reply"
+	return m.senderEmail, m.senderName
 }
