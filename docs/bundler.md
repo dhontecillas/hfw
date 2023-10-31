@@ -52,8 +52,6 @@ As in the compile step, this is a dirty hardcoded call to the `tar` tool using
 There are several config options that allows us to tweak what we want the bundler to do.
 Those can be found in `pkg/bundler/cmd.go`.
 
-- `bund
-
 ### Migrations
 
 Migration are pairs of files `*.up.sql` / `*.down.sql` that contain the database

@@ -1,1 +1,1 @@
-package bundle
+package bundler

@@ -14,15 +14,16 @@ import (
 
 	"github.com/radovskyb/watcher"
 
+	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
 // AppUpdaterConf has the config vars to set up an AppUpdater instance:
-// - ExecDir: the main sources directory for the executable (is also used
-// 		to generate the temp binary file name)
-// - PkgsDirs: the list of directories to observe for changes
-// - BuildFileExts: file extensions that should trigger a new binary build
-// - ResFilesExts: file extensions that should trigger an update of the resource files
+//   - ExecDir: the main sources directory for the executable (is also used
+//     to generate the temp binary file name)
+//   - PkgsDirs: the list of directories to observe for changes
+//   - BuildFileExts: file extensions that should trigger a new binary build
+//   - ResFilesExts: file extensions that should trigger an update of the resource files
 type AppUpdaterConf struct {
 	ExecDir       string
 	PkgsDirs      []string
@@ -193,7 +194,7 @@ func (a *AppUpdater) UpdateResource(e *watcher.Event) {
 	if !e.Mode().IsRegular() {
 		return
 	}
-	dataDirs := DataDirs()
+	dataDirs := bundler.DataDirs()
 
 	a.ins.L.Warn(fmt.Sprintf("update %s", e.Path))
 	for dst, dir := range dataDirs {
@@ -205,7 +206,7 @@ func (a *AppUpdater) UpdateResource(e *watcher.Event) {
 					parentDir, err.Error()))
 				continue
 			}
-			if err := CopyFile(e.Path, dstPath); err != nil {
+			if err := bundler.CopyFile(e.Path, dstPath); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error copying file %s to %s: %s",
 					e.Path, dstPath, err.Error()))
 			}

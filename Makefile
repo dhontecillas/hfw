@@ -11,7 +11,7 @@ GOTOOLS          ?= github.com/GeertJohan/fgt \
 
 
 build:
-	go build -v ./cmd/importer
+	go build -v ./cmd/collectmigrations
 .PHONY: build
 
 lint: tools

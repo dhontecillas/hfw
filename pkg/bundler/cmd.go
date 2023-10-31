@@ -4,9 +4,9 @@
 // server.
 //
 // These are the kind of assets that can take care of collecting:
-//  - migration files
-//  -
-//
+//   - migration files
+//   - html templates
+//   - notification templates
 package bundler
 
 import (
@@ -46,6 +46,8 @@ const (
 	// KeyBundlerPackExtraDirs is the config key for knowing from where the files are
 	// picked to be packed with the bundler.
 	KeyBundlerPackExtraDirs = "bundler.pack.srcs"
+	// KeyBundlerPackVariant defines the variant of the config to be put inside the bundle
+	KeyBundlerPackVariant = "bundler.pack.variant"
 )
 
 // ExecuteBundlerOperations parses the command line and environment
@@ -73,13 +75,18 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 	if len(bundleDstDir) > 0 {
 		scanDirs := v.GetStringSlice(confPrefix + KeyBundlerPackExtraDirs)
 		projDir, err := os.Getwd()
-		if err == nil {
-            // TODO: we might have a conf variant set! we must use
-            // the hardcoded "prod" only as a fallback
-			err = PrepareBundle(projDir, bundleDstDir, scanDirs, "prod")
-		}
 		if err != nil {
-			l.Err(err, fmt.Sprintf("cannot prepare bundle: %s", err.Error()))
+			l.Err(err, " cannt read working directory")
+			return
+		}
+		//  get the bundle variant
+		//
+		// TODO: we might have a conf variant set! we must use
+		// the hardcoded "prod" only as a fallback
+		variant := v.GetString(KeyBundlerPackVariant)
+		err = PrepareBundle(projDir, bundleDstDir, scanDirs, variant)
+		if err != nil {
+			l.Err(err, fmt.Sprintf("cannot prepare bundle"))
 			return
 		}
 	} else {
