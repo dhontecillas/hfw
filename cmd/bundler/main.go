@@ -9,11 +9,17 @@ import (
 )
 
 const (
-	KeyConfPrefix string = "sendrules."
+	EnvKeyBundlerConfPrefix string = "sendrules."
 )
 
 func main() {
-	if err := config.InitConfig(KeyConfPrefix); err != nil {
+	confPrefix = os.Getenv(EnvKeyBundlerConfPrefix)
+	if len(confPrefix) == 0 {
+		fmt.Printf("the HFW_BUNDLER_PREFIX must be set and should be something like 'yourappprefix.'\n")
+		return
+	}
+
+	if err := config.InitConfig(confPrefix); err != nil {
 		panic(err)
 	}
 
