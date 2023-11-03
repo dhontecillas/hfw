@@ -7,7 +7,7 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/pkg/errors"
 
-	"github.com/DataDog/datadog-go/statsd"
+	"github.com/DataDog/datadog-go/v5/statsd"
 )
 
 // Custom metric types
