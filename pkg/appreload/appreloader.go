@@ -64,7 +64,7 @@ func (a *AppUpdater) Launch() {
 	for _, pkgDir := range a.conf.PkgsDirs {
 		if err := a.w.AddRecursive(pkgDir); err != nil {
 			a.ins.L.Err(err, fmt.Sprintf("cannot add recursive dir %s : %s",
-				a.conf.ExecDir, err.Error()))
+				pkgDir, err.Error()))
 		}
 	}
 
@@ -118,6 +118,7 @@ func (a *AppUpdater) procRegularFile(event *watcher.Event) {
 
 	for _, ext := range a.conf.ResFileExts {
 		if strings.HasSuffix(nm, ext) {
+			a.ins.L.InfoMsg("updating resource").Str("resource", nm).Send()
 			a.UpdateResource(event)
 			return
 		}
@@ -199,7 +200,7 @@ func (a *AppUpdater) UpdateResource(e *watcher.Event) {
 	a.ins.L.Warn(fmt.Sprintf("update %s", e.Path))
 	for dst, dir := range dataDirs {
 		if idx := strings.Index(e.Path, dir); idx >= 0 {
-			dstPath := filepath.Join("./bundle", dst, e.Path[idx+len(dir):])
+			dstPath := filepath.Join(a.conf.BundleDir, dst, e.Path[idx+len(dir):])
 			parentDir := filepath.Dir(dstPath)
 			if err := os.MkdirAll(parentDir, 0775); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error creating parent dir %s: %s",

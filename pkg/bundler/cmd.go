@@ -76,7 +76,7 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 		scanDirs := v.GetStringSlice(confPrefix + KeyBundlerPackExtraDirs)
 		projDir, err := os.Getwd()
 		if err != nil {
-			l.Err(err, " cannt read working directory")
+			l.Err(err, " cannot read working directory")
 			return
 		}
 		//  get the bundle variant
