@@ -1,4 +1,8 @@
-package bundler
+// Package appreload allows to detect changes in the source code for
+// a Go application and rebuild the executable. In case of success it
+// can kill the previous running version, and launch the newly created
+// executable.
+package appreload
 
 import (
 	"fmt"
@@ -10,15 +14,16 @@ import (
 
 	"github.com/radovskyb/watcher"
 
+	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
 // AppUpdaterConf has the config vars to set up an AppUpdater instance:
-// - ExecDir: the main sources directory for the executable (is also used
-// 		to generate the temp binary file name)
-// - PkgsDirs: the list of directories to observe for changes
-// - BuildFileExts: file extensions that should trigger a new binary build
-// - ResFilesExts: file extensions that should trigger an update of the resource files
+//   - ExecDir: the main sources directory for the executable (is also used
+//     to generate the temp binary file name)
+//   - PkgsDirs: the list of directories to observe for changes
+//   - BuildFileExts: file extensions that should trigger a new binary build
+//   - ResFilesExts: file extensions that should trigger an update of the resource files
 type AppUpdaterConf struct {
 	ExecDir       string
 	PkgsDirs      []string
@@ -59,7 +64,7 @@ func (a *AppUpdater) Launch() {
 	for _, pkgDir := range a.conf.PkgsDirs {
 		if err := a.w.AddRecursive(pkgDir); err != nil {
 			a.ins.L.Err(err, fmt.Sprintf("cannot add recursive dir %s : %s",
-				a.conf.ExecDir, err.Error()))
+				pkgDir, err.Error()))
 		}
 	}
 
@@ -113,6 +118,7 @@ func (a *AppUpdater) procRegularFile(event *watcher.Event) {
 
 	for _, ext := range a.conf.ResFileExts {
 		if strings.HasSuffix(nm, ext) {
+			a.ins.L.InfoMsg("updating resource").Str("resource", nm).Send()
 			a.UpdateResource(event)
 			return
 		}
@@ -189,19 +195,19 @@ func (a *AppUpdater) UpdateResource(e *watcher.Event) {
 	if !e.Mode().IsRegular() {
 		return
 	}
-	dataDirs := DataDirs()
+	dataDirs := bundler.DataDirs()
 
 	a.ins.L.Warn(fmt.Sprintf("update %s", e.Path))
 	for dst, dir := range dataDirs {
 		if idx := strings.Index(e.Path, dir); idx >= 0 {
-			dstPath := filepath.Join("./bundle", dst, e.Path[idx+len(dir):])
+			dstPath := filepath.Join(a.conf.BundleDir, dst, e.Path[idx+len(dir):])
 			parentDir := filepath.Dir(dstPath)
 			if err := os.MkdirAll(parentDir, 0775); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error creating parent dir %s: %s",
 					parentDir, err.Error()))
 				continue
 			}
-			if err := CopyFile(e.Path, dstPath); err != nil {
+			if err := bundler.CopyFile(e.Path, dstPath); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error copying file %s to %s: %s",
 					e.Path, dstPath, err.Error()))
 			}

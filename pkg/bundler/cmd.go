@@ -1,3 +1,12 @@
+// Package bundler takes care of collecting file assets stored
+// in different packages and putting them in a single place that
+// might be accessible to the app or a third party static file
+// server.
+//
+// These are the kind of assets that can take care of collecting:
+//   - migration files
+//   - html templates
+//   - notification templates
 package bundler
 
 import (
@@ -18,12 +27,17 @@ import (
 )
 
 const (
-	// KeyBundlerCollectMigrations is the config key for collect value.
+	// KeyBundlerCollectMigrations is the config key for a boolean value that enables
+	// collecting the database migration files.
 	KeyBundlerCollectMigrations = "bundler.migrations.collect"
-	// KeyBundlerCollectMigrationsDstDir is the config key for migrations destionation dir.
+
+	// KeyBundlerCollectMigrationsDstDir is the config key for a string value that
+	// tells the bundler where to place the collected migrations.
 	KeyBundlerCollectMigrationsDstDir = "bundler.migrations.dst"
+
 	// KeyBundlerCollectMigrationsScanDirs  is the config key for migrations source dir.
 	KeyBundlerCollectMigrationsScanDirs = "bundler.migrations.scan"
+
 	// KeyBundlerMigrate is the config key for knowing if migrations should be applied.
 	KeyBundlerMigrate = "bundler.migrations.migrate"
 	// KeyBundlerPackDstDir is the config key for knowing where to place the files
@@ -32,6 +46,8 @@ const (
 	// KeyBundlerPackExtraDirs is the config key for knowing from where the files are
 	// picked to be packed with the bundler.
 	KeyBundlerPackExtraDirs = "bundler.pack.srcs"
+	// KeyBundlerPackVariant defines the variant of the config to be put inside the bundle
+	KeyBundlerPackVariant = "bundler.pack.variant"
 )
 
 // ExecuteBundlerOperations parses the command line and environment
@@ -59,13 +75,18 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 	if len(bundleDstDir) > 0 {
 		scanDirs := v.GetStringSlice(confPrefix + KeyBundlerPackExtraDirs)
 		projDir, err := os.Getwd()
-		if err == nil {
-            // TODO: we might have a conf variant set! we must use
-            // the hardcoded "prod" only as a fallback
-			err = PrepareBundle(projDir, bundleDstDir, scanDirs, "prod")
-		}
 		if err != nil {
-			l.Err(err, fmt.Sprintf("cannot prepare bundle: %s", err.Error()))
+			l.Err(err, " cannot read working directory")
+			return
+		}
+		//  get the bundle variant
+		//
+		// TODO: we might have a conf variant set! we must use
+		// the hardcoded "prod" only as a fallback
+		variant := v.GetString(KeyBundlerPackVariant)
+		err = PrepareBundle(projDir, bundleDstDir, scanDirs, variant)
+		if err != nil {
+			l.Err(err, fmt.Sprintf("cannot prepare bundle"))
 			return
 		}
 	} else {
@@ -73,9 +94,10 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 	}
 }
 
-// UpdateMigrationsFromConfig reads the place to put migration files, and source
-// directories to search for migrations from the configuration, and updates the
-// migration files.
+// UpdateMigrationsFromConfig reads the configuration values that are set to
+// know the directory from where to collect migrations, and the directory to
+// put the newly found migrations, to call the [UpdateMigrations] function that
+// performs the actual collection.
 func UpdateMigrationsFromConfig(v *viper.Viper, l logs.Logger, confPrefix string) error {
 	dstDir := v.GetString(confPrefix + KeyBundlerCollectMigrationsDstDir)
 	scanDirs := v.GetStringSlice(confPrefix + KeyBundlerCollectMigrationsScanDirs)

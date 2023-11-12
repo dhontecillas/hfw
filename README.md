@@ -1,5 +1,5 @@
 # **HFW**: Handy FrameWork
-![Coverage](https://img.shields.io/badge/Coverage-26.9%25-red)
+![Coverage](https://img.shields.io/badge/Coverage-31.4%25-yellow)
 
 [![Coverage Status](https://coveralls.io/repos/github/dhontecillas/hfw/badge.svg?branch=main)](https://coveralls.io/github/dhontecillas/hfw?branch=main)
 
@@ -277,3 +277,9 @@ These are the stable APIs for mobile apps or third party integrations.
 - Errors are logged at the usecase layer whenever is possible.
 - Errors coming from other libraries that aren't know
 
+
+# Alternatives 
+
+These are much more elaborated frameworks, production ready that you might want to have a look at:
+
+- [Iris](https://github.com/kataras/iris)
