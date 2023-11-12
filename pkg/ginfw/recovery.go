@@ -54,7 +54,7 @@ func RecoveryWithObs(ins *obs.Insighter) gin.HandlerFunc {
 
 			lErr, ok := err.(error)
 			if !ok {
-				lErr = fmt.Errorf("PANIC")
+				lErr = fmt.Errorf("error: %#v", err)
 			}
 			msg := reqIns.L.ErrMsg(lErr, fmt.Sprintf("PANIC %s", lErr.Error()))
 			msg.Str("headers", strings.Join(headers, "\r\n"))

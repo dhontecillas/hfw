@@ -44,7 +44,7 @@ type MigrationFiles map[string]MigrationPair
 // UpdateMigrations finds the existing migrations in dstDir,
 // and checks their hashes for changes, adding the new migrations
 // as required. UpdateMigrations changes the existing IDs for
-// their timestamps, so migration can
+// their timestamps, so migration can be executed in order.
 func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 	existing, issues := ListExistingMigrations(dstDir, l)
 
@@ -59,14 +59,16 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 		issues = append(issues, dirIssues...)
 		for k, v := range dirMigrations {
 			if _, ok := srcMigrations[k]; ok {
-				l.WarnMsg("duplicate migration name").Str("name", k)
+				l.WarnMsg("duplicate migration name").Str("name", k).Send()
 			}
 			srcMigrations[k] = v
 		}
 	}
 
 	if len(srcMigrations) == 0 {
-		l.Warn("No migrations found")
+		l.WarnMsg("no migrations found").
+			Str("scan_dirs", strings.Join(scanDirs, ",")).
+			Send()
 	} else {
 		for k, v := range srcMigrations {
 			l.InfoMsg("found migration").Str("name", k).
@@ -132,7 +134,7 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 // ListExistingMigrations computes the hash for the 'up' and 'down'
 // migration files.
 func ListExistingMigrations(dstDir string, l logs.Logger) (MigrationFiles, []error) {
-	l.Info(fmt.Sprintf("Listing existing migrations in : %s", dstDir))
+	l.Info(fmt.Sprintf("listing existing migrations in: %s", dstDir))
 	migrationFiles := make(MigrationFiles)
 	issues := []error{}
 

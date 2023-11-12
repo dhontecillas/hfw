@@ -3,6 +3,7 @@ package bundler
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -55,10 +56,21 @@ func CopyDir(src, dst string) error {
 	if err != nil {
 		return err
 	}
+
+	// check that dst is not a subdir of srs to avoid recursive
+	// infinite copy
+	if strings.HasPrefix(absDst, absSrc) {
+		return fmt.Errorf("destination is under source directory")
+	}
+
 	err = filepath.Walk(absSrc,
 		func(path string, info os.FileInfo, err error) error {
 			if !strings.HasPrefix(path, absSrc) {
+				// avoiding symlinks ?
 				return nil
+			}
+			if err != nil {
+				return err
 			}
 			relPath := path[lenAbsSrc:]
 			dst := filepath.Join(absDst, relPath)
