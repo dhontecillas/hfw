@@ -1,6 +1,7 @@
 package ginfw
 
 import (
+	"strings"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/ids"
@@ -14,6 +15,8 @@ const (
 
 	LabelInsMethod   string = "method"
 	LabelInsPath     string = "path"
+	LabelInsQuery    string = "query"
+	LabelInsHeaders  string = "headers"
 	LabelInsReqID    string = "reqid"
 	LabelInsRemoteIP string = "ip"
 	LabelInsStatus   string = "status"
@@ -62,6 +65,22 @@ func ObsMiddleware() gin.HandlerFunc {
 		// set some shared tags for logs, metrics and traces
 		ins.Str(LabelInsMethod, c.Request.Method)
 		ins.Str(LabelInsPath, c.Request.URL.Path)
+		ins.L.Str(LabelInsQuery, c.Request.URL.RawQuery)
+
+		var hb strings.Builder
+		for k, v := range c.Request.Header {
+			hb.WriteString(k)
+			hb.WriteString(":[")
+			for idx, vv := range v {
+				if idx > 0 {
+					hb.WriteString(",")
+				}
+				hb.WriteString(vv)
+			}
+			hb.WriteString("] ")
+		}
+		ins.L.Str(LabelInsHeaders, hb.String())
+
 		reqID := "UNKNOWN"
 		if id, err := idGen.New(); err == nil {
 			reqID = id.ToUUID()
