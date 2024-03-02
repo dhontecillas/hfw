@@ -32,6 +32,10 @@ func (i *ID) FromUUID(uuid string) error {
 	return err
 }
 
+func (i *ID) ToULID() ulid.ULID {
+	return ulid.ULID(*i)
+}
+
 // ToShuffled just scrambles the string to make it less obvious
 // that IDs are sequential, and that starts with the timestamp
 func (i *ID) ToShuffled() string {
