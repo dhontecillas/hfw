@@ -50,6 +50,9 @@ type RegistrationRepo interface {
 
 	// DeleteUser deletes a created user
 	DeleteUser(email string) error
+
+	// ListUsers lists users with pagination
+	ListUsers(from ids.ID, limit int, backwards bool) ([]User, error)
 }
 
 // HostInfo contains the required info to construct

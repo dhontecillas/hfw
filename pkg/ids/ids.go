@@ -21,6 +21,11 @@ func (i *ID) ToUUID() string {
 		i[10], i[11], i[12], i[13], i[14], i[15])
 }
 
+func (i *ID) IsZero() bool {
+	var zero ID
+	return *i == zero
+}
+
 // FromUUID reads the bytes from a UUID formatted ulid.
 func (i *ID) FromUUID(uuid string) error {
 	_, err := fmt.Sscanf(uuid, uidFmt,

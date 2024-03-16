@@ -59,3 +59,8 @@ func (r *NopRegistrationRepo) CheckPassword(email string, password string) (ids.
 func (r *NopRegistrationRepo) DeleteUser(email string) error {
 	return fmt.Errorf("not implemented")
 }
+
+// ListUsers lists users with pagination
+func (r *NopRegistrationRepo) ListUsers(from ids.ID, limit int, backwards bool) ([]User, error) {
+	return []User{}, fmt.Errorf("not implemented")
+}

@@ -3,6 +3,7 @@ package users
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"testing"
 	"time"
 
@@ -131,6 +132,83 @@ func Test_RepoSQLX_HappyPath(t *testing.T) {
 
 	_, err = r.CheckPassword(email, "baz")
 	if err == nil {
-		t.Errorf("user should noo exist: %s", email)
+		t.Errorf("user should not exist: %s", email)
 	}
+
+}
+
+func Test_RepoSQLX_ListUsers(t *testing.T) {
+	deps := hfwtest.BuildExternalServices()
+	r := NewRepoSQLX(deps.Insighter(), deps.SQL, "tokenSalt")
+	// create a list of users
+	for i := 0; i < 100; i++ {
+		email := fmt.Sprintf("ul_%d@example.com", i)
+		pass := fmt.Sprintf("ul_%d", i)
+		token, _ := r.CreateInactiveUser(email, pass)
+		r.ActivateUser(token)
+	}
+
+	var id ids.ID // the zero ID
+	users, e := r.ListUsers(id, 10, false)
+	if e != nil {
+		t.Errorf("cannot list users page 0: %s", e.Error())
+		return
+	}
+	if len(users) != 10 {
+		t.Errorf("page 0: want 10 users, got %d", len(users))
+		return
+	}
+	fmt.Printf("Page 0")
+	for idx, u := range users {
+		fmt.Printf("%d :: %s\n", idx, u.String())
+	}
+
+	p0u0 := users[0]
+	p0u9 := users[9]
+
+	users, e = r.ListUsers(p0u9.ID, 10, false)
+	if e != nil {
+		t.Errorf("cannot list users page 1: %s", e.Error())
+		return
+	}
+	if len(users) != 10 {
+		t.Errorf("page 1: want 10 users, got %d", len(users))
+		return
+	}
+	fmt.Printf("Page 1")
+	for idx, u := range users {
+		fmt.Printf("%d :: %s\n", idx, u.String())
+	}
+
+	p1u0 := users[0]
+	p1u9 := users[1]
+
+	if p1u0.ID == p0u0.ID {
+		t.Errorf("bad pagination p0u0 %s == p1u0 %s", p0u0.ID, p1u0.ID)
+		return
+	}
+	if p1u9.ID == p0u9.ID {
+		t.Errorf("bad pagination p0u0 %s == p1u0 %s", p0u9.ID, p1u9.ID)
+		return
+	}
+
+	users, e = r.ListUsers(p1u0.ID, 10, true)
+	if e != nil {
+		t.Errorf("cannot list users backward page 0: %s", e.Error())
+		return
+	}
+	if len(users) != 10 {
+		t.Errorf("backward page 0: want 10 users, got %d", len(users))
+		for idx, u := range users {
+			t.Errorf("  ->  %d -> %s", idx, u.ID.ToUUID())
+		}
+		t.Errorf("cursor id -> %s", p1u0.String())
+		return
+	}
+
+	if users[0].ID != p0u0.ID {
+		t.Errorf("backward page 0, user 0 different from page 0, user 0")
+		return
+	}
+
 }
