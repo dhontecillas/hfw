@@ -48,20 +48,20 @@ func ReadSessionConf(ins *obs.Insighter, confPrefix string,
 		return nil, err
 	}
 
-	viper.SetDefault(confKeySessionRedisMaxIdle, confDefaultSessionRedisMaxIdle)
+	viper.SetDefault(confPrefix+confKeySessionRedisMaxIdle, confDefaultSessionRedisMaxIdle)
 	if redisConf != nil {
-		viper.SetDefault(confKeySessionRedisHost, redisConf.Address())
+		viper.SetDefault(confPrefix+confKeySessionRedisHost, redisConf.Address())
 	} else {
-		viper.SetDefault(confKeySessionRedisHost, confDefaultSessionRedisHost)
+		viper.SetDefault(confPrefix+confKeySessionRedisHost, confDefaultSessionRedisHost)
 	}
-	viper.SetDefault(confKeySessionRedisPassword, confDefaultSessionRedisPassword)
-	viper.SetDefault(confKeySessionIsDevelop, confDefaultSessionIsDevelop)
+	viper.SetDefault(confPrefix+confKeySessionRedisPassword, confDefaultSessionRedisPassword)
+	viper.SetDefault(confPrefix+confKeySessionIsDevelop, confDefaultSessionIsDevelop)
 
 	return &session.Conf{
 		RedisConf: session.RedisConf{
-			MaxIdleConnections: viper.GetInt(confKeySessionRedisMaxIdle),
-			Host:               viper.GetString(confKeySessionRedisHost),
-			Password:           viper.GetString(confKeySessionRedisPassword),
+			MaxIdleConnections: viper.GetInt(confPrefix + confKeySessionRedisMaxIdle),
+			Host:               viper.GetString(confPrefix + confKeySessionRedisHost),
+			Password:           viper.GetString(confPrefix + confKeySessionRedisPassword),
 			SecretKeyPair:      secretKeyPair,
 		},
 		CsrfSecret: CSRFSecret,
