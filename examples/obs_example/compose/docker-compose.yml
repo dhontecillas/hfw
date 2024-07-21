@@ -1,4 +1,3 @@
-version: "3"
 volumes:
   vol_obs_example_grafana:
   vol_obs_example_tempo:
