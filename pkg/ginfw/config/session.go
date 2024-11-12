@@ -35,7 +35,7 @@ func ReadSessionConf(ins *obs.Insighter, confPrefix string,
 	if len(secretKeyPair) == 0 {
 		msg := fmt.Sprintf("cannot read required config value: %s",
 			confKeySessionSecretKeyPair)
-		err := fmt.Errorf(msg)
+		err := fmt.Errorf("%s", msg)
 		ins.L.ErrMsg(err, msg)
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func ReadSessionConf(ins *obs.Insighter, confPrefix string,
 	if len(CSRFSecret) == 0 {
 		msg := fmt.Sprintf("cannot read required config value: %s",
 			confKeySessionCSRFSecret)
-		err := fmt.Errorf(msg)
+		err := fmt.Errorf("%s", msg)
 		ins.L.ErrMsg(err, msg)
 		return nil, err
 	}

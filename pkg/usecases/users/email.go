@@ -185,7 +185,6 @@ func (r *EmailRegistration) RequestResetPassword(email string) error {
 			"host":       r.hostInfo.Host,
 			"path":       r.hostInfo.ResetPasswordPath,
 		})
-	return nil
 }
 
 // ResetPasswordWithToken sets a new password for a given user using a

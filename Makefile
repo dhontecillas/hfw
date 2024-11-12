@@ -1,5 +1,5 @@
 PACKAGES         ?= $(shell go list ./... | grep -v vendor | grep -v gopath | tr '\n' ' ')
-GOTOOLS          ?= github.com/GeertJohan/fgt \
+GOTOOLS          ?= \
 					golang.org/x/tools/cmd/goimports \
 					golang.org/x/tools/cmd/cover \
 					github.com/kisielk/errcheck \
@@ -15,16 +15,17 @@ build:
 .PHONY: build
 
 lint: tools
-	fgt go fmt $(PACKAGES)
-	fgt go vet -composites=False $(PACKAGES)
-	fgt errcheck -ignore Close $(PACKAGES)
-	echo $(PACKAGES) | xargs -L1 fgt golint
+	# go fmt $(PACKAGES)
+	go vet -composites=False $(PACKAGES)
+	# errcheck -ignore Close $(PACKAGES)
+	# echo $(PACKAGES) | xargs -L1 fgt golint
 	staticcheck $(PACKAGES)
 .SILENT: lint
 .PHONY: lint
 
 tools:
-	go get $(GOTOOLS)
+	# go install $(GOTOOLS)
+	go install honnef.co/go/tools/cmd/staticcheck@latest
 	go install github.com/mattn/goveralls
 .SILENT: tools
 .PHONY: tools
