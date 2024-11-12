@@ -78,14 +78,14 @@ test:
 .PHONY: test
 
 dctest:
-	docker-compose -f docker-compose.test.yml up -d && sleep 4 && \
-	export TESTDB_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_db 5432 | cut -d ':' -f 2) && \
-	export TESTREDIS_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_redis 6279 | cut -d ':' -f 2) && \
+	docker compose -f docker-compose.test.yml up -d && sleep 4 && \
+	export TESTDB_PORT=$$(docker compose -f docker-compose.test.yml port -- hfw_test_db 5432 | cut -d ':' -f 2) && \
+	export TESTREDIS_PORT=$$(docker compose -f docker-compose.test.yml port -- hfw_test_redis 6279 | cut -d ':' -f 2) && \
 	docker run -v $$PWD/testing/migrations:/migrations --network host migrate/migrate -path=/migrations/ -database postgres://hfwtest:test@localhost:$$TESTDB_PORT/hfwtest?sslmode=disable up && \
 	export NOTIFICATIONS_TEMPLATES_DIR=$$(pwd)/pkg/notifications/templates && \
 	go test -coverprofile=coverage.out $(PACKAGES) ; \
 	export TEST_RESULT=$$? ; \
-	docker-compose -f docker-compose.test.yml down ; \
+	docker compose -f docker-compose.test.yml down ; \
 	exit $$TEST_RESULT
 
 
@@ -95,10 +95,10 @@ check: test lint
 .PHONY: check
 
 coverage: tools
-	docker-compose -f docker-compose.test.yml down; sleep 4; \
-	docker-compose -f docker-compose.test.yml up -d && sleep 4 && \
-	export TESTDB_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_db 5432 | cut -d ':' -f 2) && \
-	export TESTREDIS_PORT=$$(docker-compose -f docker-compose.test.yml port -- hfw_test_redis 6279 | cut -d ':' -f 2) && \
+	docker compose -f docker-compose.test.yml down; sleep 4; \
+	docker compose -f docker-compose.test.yml up -d && sleep 4 && \
+	export TESTDB_PORT=$$(docker compose -f docker-compose.test.yml port -- hfw_test_db 5432 | cut -d ':' -f 2) && \
+	export TESTREDIS_PORT=$$(docker compose -f docker-compose.test.yml port -- hfw_test_redis 6279 | cut -d ':' -f 2) && \
 	docker run -v $$PWD/testing/migrations:/migrations --network host migrate/migrate -path=/migrations/ -database postgres://hfwtest:test@localhost:$$TESTDB_PORT/hfwtest?sslmode=disable up && \
 	export NOTIFICATIONS_TEMPLATES_DIR=$$(pwd)/pkg/notifications/templates && \
 	mkdir -p docs/coverage && \
