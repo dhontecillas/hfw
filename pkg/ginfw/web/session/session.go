@@ -49,7 +49,7 @@ func Setup(conf *Conf) error {
 func Use(r gin.IRoutes, conf *Conf) {
 	err := Setup(conf)
 	if err != nil {
-		panic(fmt.Sprintf("cannot set up session: %s", err.Error()))
+		panic(fmt.Sprintf("cannot set up session\n%#v\n: %s", *conf, err.Error()))
 	}
 	r.Use(sessions.Sessions(keySessionName, LogInSession))
 	r.Use(csrf.Middleware(csrf.Options{

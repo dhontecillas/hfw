@@ -5,7 +5,6 @@ It expects to have these env vars set:
 
 - SENTRY_DSN: a valid Sentry DSN to send logs to
 - OBSEXAMPLE_LOGFILE
-
 */
 package main
 
@@ -28,36 +27,39 @@ const (
 )
 
 func main() {
-	fmt.Println("=== obs example ===")
+	fmt.Println("----------=== obs example ===----------")
 	fmt.Println("")
 
+	logBuilders := make([]logs.LoggerBuilderFn, 0, 4)
 	logrusBuilder, logrusFlush := buildLogrusLogger()
-	if logrusBuilder == nil {
-		panic("logrus builder is nil")
+	if logrusBuilder != nil {
+		logBuilders = append(logBuilders, logrusBuilder)
+		defer logrusFlush()
 	}
-	defer logrusFlush()
 
 	dsn := os.Getenv(EnvSentryDsn)
-	sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(&logs.SentryConf{
-		Dsn:              dsn,
-		AttachStacktrace: true,
-		Environment:      "DEBUG",
-		FlushTimeoutSecs: 4,
-	})
-	if err != nil {
-		fmt.Printf("\n\nErr: %s\n", err.Error())
-		panic(err.Error())
+	if len(dsn) > 0 {
+		sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(&logs.SentryConf{
+			Dsn:              dsn,
+			AttachStacktrace: true,
+			Environment:      "DEBUG",
+			FlushTimeoutSecs: 4,
+		})
+		if err != nil {
+			fmt.Printf("\n\nErr: %s\n", err.Error())
+			panic(err.Error())
+		}
+		if sentryBuilder != nil {
+			logBuilders = append(logBuilders, sentryBuilder)
+			defer sentryFlush()
+		} else {
+			fmt.Printf("Sentry builder is NIL\n")
+		}
 	}
-	if sentryBuilder == nil {
-		fmt.Printf("Sentry builder is NIL\n")
-		panic("sentry builder is nil")
-	}
-	sentryBuilder()
-	defer sentryFlush()
 
 	// we can have several log builders and wrap them to have logs sent to
-	// different places:
-	logBuilder := logs.NewMultiLoggerBuilder(logrusBuilder, sentryBuilder)
+	// different places
+	logBuilder := logs.NewMultiLoggerBuilder(logBuilders...)
 
 	startupLogger := logBuilder()
 	// example of sending metrics to multiple meters
@@ -182,6 +184,8 @@ func newFakeRequest(endChan chan interface{}, ins *obs.Insighter,
 
 	ins.Str("path", path)
 	ins.I64("req_id", reqID)
+	ins.M.Str("path", path)
+	ins.M.Str("verb", method)
 	ins.M.Inc("concurrent_requests")
 	ins.M.Inc("requests")
 

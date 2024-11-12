@@ -551,3 +551,77 @@ WHERE
 	// TODO: depending on the database we could check the RowsAffected
 	// if rows.RowsAffected() == 0, we could return a not found
 }
+
+// ListUsers lists users with pagination
+func (r *RepoSQLX) ListUsers(from ids.ID, limit int, backwards bool) ([]User, error) {
+	// TODO: check if we should do an union with the `user_registration_requests` to
+	// also list those users that have not activated the account
+	master := r.sqlDB.Master()
+	var rows *sqlx.Rows
+	var err error
+
+	if from.IsZero() {
+		q := `
+SELECT
+    id
+    , email
+    , created
+FROM users
+LIMIT $1
+`
+		rows, err = master.Queryx(q, limit)
+		if err != nil {
+			return []User{}, err
+		}
+	} else {
+		if !backwards {
+			q := `
+SELECT
+    id
+    , email
+    , created
+FROM users
+WHERE 
+    id > $1
+ORDER BY id
+LIMIT $2
+`
+			rows, err = master.Queryx(q, from.ToUUID(), limit)
+			if err != nil {
+				return []User{}, err
+			}
+		} else {
+			q := `
+WITH backpage AS (
+    SELECT 
+        id 
+    FROM users
+    WHERE id < $1
+    ORDER BY id DESC
+    LIMIT $2
+)
+SELECT
+    id
+    , email
+    , created
+FROM users
+WHERE id IN (SELECT id FROM backpage)
+ORDER BY id
+`
+			rows, err = master.Queryx(q, from.ToUUID(), limit)
+			if err != nil {
+				return []User{}, err
+			}
+		}
+	}
+
+	results := make([]User, 0, limit)
+	var u User
+	for rows.Next() {
+		if err := rows.StructScan(&u); err != nil {
+			return []User{}, err
+		}
+		results = append(results, u)
+	}
+	return results, nil
+}

@@ -50,6 +50,9 @@ type RegistrationRepo interface {
 
 	// DeleteUser deletes a created user
 	DeleteUser(email string) error
+
+	// ListUsers lists users with pagination
+	ListUsers(from ids.ID, limit int, backwards bool) ([]User, error)
 }
 
 // HostInfo contains the required info to construct
@@ -182,7 +185,6 @@ func (r *EmailRegistration) RequestResetPassword(email string) error {
 			"host":       r.hostInfo.Host,
 			"path":       r.hostInfo.ResetPasswordPath,
 		})
-	return nil
 }
 
 // ResetPasswordWithToken sets a new password for a given user using a

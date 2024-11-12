@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   hfw_test_db:
     image: postgres
