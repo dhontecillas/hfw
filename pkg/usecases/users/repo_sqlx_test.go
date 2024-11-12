@@ -145,7 +145,7 @@ func Test_RepoSQLX_ListUsers(t *testing.T) {
 		email := fmt.Sprintf("ul_%d@example.com", i)
 		pass := fmt.Sprintf("ul_%d", i)
 		token, _ := r.CreateInactiveUser(email, pass)
-		r.ActivateUser(token)
+		_, _ = r.ActivateUser(token)
 	}
 
 	var id ids.ID // the zero ID
