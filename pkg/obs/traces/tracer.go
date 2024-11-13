@@ -1,6 +1,8 @@
 package traces
 
 import (
+	"net/http"
+
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 )
 
@@ -28,3 +30,7 @@ type Tracer interface {
 
 // TracerBuilderFn defines the function type to create a new Tracer
 type TracerBuilderFn func(log logs.Logger) Tracer
+
+type HTTPTracer interface {
+	FromHTTPRequest(r *http.Request) Tracer
+}

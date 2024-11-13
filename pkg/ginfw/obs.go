@@ -1,50 +1,51 @@
 package ginfw
 
 import (
+	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/ids"
 	"github.com/gin-gonic/gin"
+
+	"github.com/dhontecillas/hfw/pkg/obs/logs"
+	"github.com/dhontecillas/hfw/pkg/obs/metrics"
 )
 
-// Constants for configuration parameters related to logs / metrics / traces
-const (
-	// tags shared across all insights ?
-	LabelInsApp string = "app"
+func headersToString(headers http.Header) string {
+	var hb strings.Builder
 
-	LabelInsMethod   string = "method"
-	LabelInsPath     string = "path"
-	LabelInsReqID    string = "reqid"
-	LabelInsRemoteIP string = "ip"
-	LabelInsStatus   string = "status"
+	// TODO: we want the headers sorted by name
 
-	// Metric definitions for database
+	for k, v := range headers {
+		hb.WriteString(k)
+		hb.WriteString(":[")
+		for idx, vv := range v {
+			if idx > 0 {
+				hb.WriteString(",")
+			}
+			hb.WriteString(vv)
+		}
+		hb.WriteString("] ")
+	}
+	return hb.String()
+}
 
-	// MetDBConnError keeps track of the number of db conn. errors
-	MetDBConnError string = "db.connerror"
-	MetDBDuration  string = "db.duration"
-
-	LabelMetDBAddress    string = "address"
-	LabelMetDBDatasource string = "datasource"
-
-	// Metric definitions for Redis
-	MetRedisConnError string = "redis.connerror"
-
-	LabelMetRedisPool    string = "pool"
-	LabelMetRedisAddress string = "address"
-
-	// Metric definitions for requests
-	MetReqCount    string = "request.count"
-	MetReqDuration string = "request.duration"
-	MetReqTimeout  string = "request.timeout"
-	MetReqSize     string = "request.size"
-
-	// LogTime
-	LabelLogTime     string = "reqtime"
-	LabelLogDuration string = "duration"
-	LabelLogSize     string = "size"
-	LabelLogErrors   string = "errors"
-)
+func statusGroup(status int) string {
+	if status < 200 {
+		return "1xx"
+	}
+	if status < 300 {
+		return "2xx"
+	}
+	if status < 400 {
+		return "3xx"
+	}
+	if status < 500 {
+		return "4xx"
+	}
+	return "5xx"
+}
 
 // ObsMiddleware creates a middlewware that attaches the
 // ExternalServices instance and insighters instance with
@@ -60,39 +61,56 @@ func ObsMiddleware() gin.HandlerFunc {
 		ins := deps.Ins
 
 		// set some shared tags for logs, metrics and traces
-		ins.Str(LabelInsMethod, c.Request.Method)
-		ins.Str(LabelInsPath, c.Request.URL.Path)
+		ins.Str(metrics.AttrMethod, c.Request.Method)
+		ins.Str(metrics.AttrRoute, c.FullPath())
+
+		ins.L.Str(logs.AttrPath, c.Request.URL.Path)
+		ins.T.Str(logs.AttrPath, c.Request.URL.Path)
+		ins.L.Str(logs.AttrQuery, c.Request.URL.RawQuery)
+		ins.T.Str(logs.AttrQuery, c.Request.URL.Path)
+
+		strHeaders := headersToString(c.Request.Header)
+		ins.L.Str(logs.AttrReqHeaders, strHeaders)
+		ins.T.Str(logs.AttrReqHeaders, strHeaders)
+
 		reqID := "UNKNOWN"
 		if id, err := idGen.New(); err == nil {
 			reqID = id.ToUUID()
 		}
-		ins.Str(LabelInsReqID, reqID)
+		ins.Str(logs.AttrReqID, reqID)
 
 		// set shared tags for all logs
-		ins.L.Str(LabelInsRemoteIP, c.ClientIP())
+		ins.L.Str(logs.AttrRemoteIP, c.ClientIP())
+
 		startTime := time.Now()
-		ins.L.Str(LabelLogTime, startTime.Format(time.RFC3339))
+		ins.L.Str(logs.AttrReqDateTime, startTime.Format(time.RFC3339))
 
 		c.Next()
 
 		// tag the metrics with the status code
 		status := c.Writer.Status()
-		ins.I64(LabelInsStatus, int64(status))
+		statusG := statusGroup(status)
+
+		ins.I64(metrics.AttrStatus, int64(status))
+		ins.Str(metrics.AttrStatusGroup, statusG)
 
 		duration := time.Since(startTime).Milliseconds()
-		size := c.Writer.Size()
+		respSize := c.Writer.Size()
+
+		// TODO: we need to record the size of the incoming payload
 
 		// meter the duration of the endpoint
-		ins.M.Rec(MetReqDuration, float64(duration))
-		ins.M.Rec(MetReqSize, float64(size))
+		ins.M.Rec(metrics.MetReqDuration, float64(duration))
+		ins.M.Rec(metrics.MetHTTPResponseBodySize, float64(respSize))
 
-		ins.L.I64(LabelLogDuration, duration)
-		ins.L.I64(LabelLogSize, int64(size))
+		ins.L.I64(logs.AttrReqDuration, duration)
+		ins.L.I64(logs.AttrRespSize, int64(respSize))
 
 		m := ins.L.InfoMsg("Request")
+
 		errs := c.Errors.ByType(gin.ErrorTypePrivate).String()
 		if len(errs) > 0 {
-			m.Str(LabelLogErrors, errs)
+			m.Str(logs.AttrErrors, errs)
 		}
 		m.Send()
 	}

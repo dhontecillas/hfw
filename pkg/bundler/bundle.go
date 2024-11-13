@@ -2,7 +2,6 @@ package bundler
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -138,7 +137,7 @@ func PrepareExecutables(projDir string, dstDir string) error {
 	if err != nil {
 		return err
 	}
-	cmdDirInfos, err := ioutil.ReadDir(cmdDir)
+	cmdDirInfos, err := os.ReadDir(cmdDir)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package bundler
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -230,11 +229,16 @@ func CollectMigrations(scanDir string, l logs.Logger) (MigrationFiles, []error) 
 func CollectMigrationsFromDir(path string, migrations MigrationFiles, issues []error,
 	l logs.Logger) []error {
 	l.Info(fmt.Sprintf("collecting migrations from %s", path))
-	files, err := ioutil.ReadDir(path)
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return append(issues, err)
 	}
-	for _, fi := range files {
+	for _, entry := range entries {
+		fi, err := entry.Info()
+		if err != nil {
+			// TODO: log som error here
+			continue
+		}
 		m, mIssues := migrationCandidate(path, fi)
 		if m != nil {
 			if _, ok := migrations[m.Up.Base]; ok {

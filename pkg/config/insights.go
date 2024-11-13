@@ -8,8 +8,6 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
 	"github.com/spf13/viper"
-
-	"github.com/dhontecillas/hfw/pkg/ginfw"
 )
 
 const (
@@ -97,38 +95,41 @@ func (ic *InsightsConfig) loadSentryConfig(confPrefix string) {
 
 func defaultMetricsConfig() metrics.Defs {
 	requestLabels := []string{
-		ginfw.LabelInsPath,
-		ginfw.LabelInsMethod,
+		metrics.AttrRoute,
+		metrics.AttrMethod,
 	}
 
 	responseLabels := []string{
-		ginfw.LabelInsStatus,
+		metrics.AttrStatus,
+		metrics.AttrStatusGroup,
 	}
 	responseLabels = append(responseLabels, requestLabels...)
 
 	dbconnErrorLabels := []string{
-		ginfw.LabelMetDBAddress,
-		ginfw.LabelMetDBDatasource,
+		metrics.AttrDBSQLAddress,
+		metrics.AttrDBSQLDatasource,
 	}
 	dbconnErrorLabels = append(dbconnErrorLabels, requestLabels...)
 
 	redisconnErrorLabels := []string{
-		ginfw.LabelMetRedisPool,
-		ginfw.LabelMetRedisAddress,
+		metrics.AttrDBRedisPool,
+		metrics.AttrDBRedisAddress,
 	}
 	redisconnErrorLabels = append(redisconnErrorLabels, requestLabels...)
 
 	distributionMetrics := map[string][]string{
-		ginfw.MetReqDuration:    responseLabels,
-		ginfw.MetReqSize:        responseLabels,
-		ginfw.MetDBDuration:     responseLabels,
-		ginfw.MetRedisConnError: redisconnErrorLabels,
+		metrics.MetReqDuration:      responseLabels,
+		metrics.MetHTTPResponseSize: responseLabels,
+		metrics.MetDBQueryDuration:  responseLabels,
+		metrics.MetDBConnError:      responseLabels,
+		metrics.MetRedisConnError:   redisconnErrorLabels,
 	}
 
 	countMetrics := map[string][]string{
-		ginfw.MetReqCount:    responseLabels,
-		ginfw.MetReqTimeout:  responseLabels,
-		ginfw.MetDBConnError: dbconnErrorLabels,
+		metrics.MetReqCount:       responseLabels,
+		metrics.MetReqTimeout:     responseLabels,
+		metrics.MetDBConnError:    dbconnErrorLabels,
+		metrics.MetRedisConnError: redisconnErrorLabels,
 	}
 
 	mDefs := make(metrics.Defs, 0, len(distributionMetrics))
@@ -159,35 +160,42 @@ func ReadInsightsConfig(confPrefix string) *InsightsConfig {
 	conf := &InsightsConfig{
 		TagDefs: []obs.TagDefinition{
 			obs.TagDefinition{
-				Name:    ginfw.LabelInsStatus,
+				Name:    metrics.AttrStatus,
 				TagType: obs.TagTypeI64,
 				ToL:     true,
 				ToM:     true,
 				ToT:     true,
 			},
 			obs.TagDefinition{
-				Name:    ginfw.LabelInsPath,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     false,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsMethod,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsReqID,
+				Name:    metrics.AttrRoute,
 				TagType: obs.TagTypeStr,
 				ToL:     true,
 				ToM:     false,
 				ToT:     true,
 			},
 			obs.TagDefinition{
-				Name:    ginfw.LabelInsRemoteIP,
+				Name:    logs.AttrPath,
+				TagType: obs.TagTypeStr,
+				ToL:     true,
+				ToM:     false,
+				ToT:     true,
+			},
+			obs.TagDefinition{
+				Name:    metrics.AttrMethod,
+				TagType: obs.TagTypeStr,
+				ToL:     true,
+				ToM:     true,
+				ToT:     true,
+			},
+			obs.TagDefinition{
+				Name:    logs.AttrReqID,
+				TagType: obs.TagTypeStr,
+				ToL:     true,
+				ToM:     false,
+				ToT:     true,
+			},
+			obs.TagDefinition{
+				Name:    logs.AttrRemoteIP,
 				TagType: obs.TagTypeStr,
 				ToL:     true,
 				ToM:     false,
@@ -262,11 +270,14 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 			FlushTimeoutSecs: 2,
 			LevelThreshold:   "warning",
 			AllowedTags: []string{
-				ginfw.LabelInsMethod,
-				ginfw.LabelInsPath,
-				ginfw.LabelInsRemoteIP,
-				ginfw.LabelInsReqID,
-				ginfw.LabelInsStatus,
+				metrics.AttrApp,
+				metrics.AttrMethod,
+				metrics.AttrRoute,
+				logs.AttrPath,
+				logs.AttrRemoteIP,
+				logs.AttrReqID,
+				metrics.AttrStatus,
+				metrics.AttrStatusGroup,
 			},
 		}
 		sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(sentryConf)

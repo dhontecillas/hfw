@@ -86,7 +86,7 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 		variant := v.GetString(KeyBundlerPackVariant)
 		err = PrepareBundle(projDir, bundleDstDir, scanDirs, variant)
 		if err != nil {
-			l.Err(err, fmt.Sprintf("cannot prepare bundle"))
+			l.Err(err, "cannot prepare bundle")
 			return
 		}
 	} else {

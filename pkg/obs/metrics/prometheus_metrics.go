@@ -283,18 +283,14 @@ func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]stri
 	promLabels := make(prometheus.Labels, len(labels))
 	pm.dataMux.RLock()
 	for _, l := range labels {
-		v, ok := pm.data[l]
-		if ok {
-			promLabels[l] = v
-		}
+		promLabels[l] = pm.data[l]
 	}
 	pm.dataMux.RUnlock()
 	if labelVals == nil {
 		return promLabels
 	}
 	for _, l := range labels {
-		v, ok := labelVals[l]
-		if ok {
+		if v, ok := labelVals[l]; ok {
 			promLabels[l] = v
 		}
 	}

@@ -3,7 +3,7 @@ package notifications
 import (
 	"bytes"
 	html_template "html/template"
-	"io/ioutil"
+	"os"
 	"path"
 	"strings"
 	"text/template"
@@ -35,7 +35,7 @@ func (r *FileSystemComposer) Render(notification string, data map[string]interfa
 
 	notifDir := path.Join(r.templatesDir, notification, carrier, lang)
 
-	finfos, err := ioutil.ReadDir(notifDir)
+	finfos, err := os.ReadDir(notifDir)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (r *FileSystemComposer) Render(notification string, data map[string]interfa
 		}
 		fname := finfo.Name()
 		tmplName := strings.Split(fname, ".")[0]
-		content, err := ioutil.ReadFile(path.Join(notifDir, fname))
+		content, err := os.ReadFile(path.Join(notifDir, fname))
 		if err != nil {
 			return nil, err
 		}

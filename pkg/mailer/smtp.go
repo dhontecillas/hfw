@@ -2,6 +2,7 @@ package mailer
 
 import (
 	"fmt"
+	"net/smtp"
 	"time"
 )
 
@@ -29,4 +30,58 @@ func ComposeSMTPMsg(e Email) string {
 	return fmt.Sprintf(mailMsgTemplate, e.To, e.From, now.Format(time.RFC1123), msgID,
 		e.Subject, frontier, frontier,
 		e.Text, frontier, e.HTML, frontier)
+}
+
+// SMTPConfig has the configurations to use the SMTP service
+type SMTPConfig struct {
+	Host          string
+	Port          int
+	User          string
+	Password      string
+	SenderName    string
+	SenderAddress string
+}
+
+type smtpMailer struct {
+	conf SMTPConfig
+}
+
+// NewSMTPMailer instantiates a new SMTP mailer.
+func NewSMTPMailer(conf SMTPConfig) (Mailer, error) {
+	if len(conf.User) == 0 {
+		return nil, fmt.Errorf("missing SMTP user")
+	}
+	if len(conf.Password) == 0 {
+		return nil, fmt.Errorf("missing SMTP password")
+	}
+	// for server and port, we can fall back to defaults:
+	if len(conf.Host) == 0 {
+		return nil, fmt.Errorf("missing Host")
+	}
+	if conf.Port == 0 {
+		conf.Port = 587
+	}
+	if len(conf.SenderAddress) == 0 {
+		return nil, fmt.Errorf("missing sender Address")
+	}
+	if len(conf.SenderName) == 0 {
+		conf.SenderName = conf.SenderAddress
+	}
+	return &smtpMailer{
+		conf: conf,
+	}, nil
+}
+
+// Sends an email to SMTP service
+func (m *smtpMailer) Send(e Email) error {
+	address := fmt.Sprintf("%s:%d", m.conf.Host, m.conf.Port)
+	auth := smtp.PlainAuth("", m.conf.User, m.conf.Password, m.conf.Host)
+	msg := ComposeSMTPMsg(e)
+	err := smtp.SendMail(address, auth, e.From.Address, []string{e.To.Address}, []byte(msg))
+	return err
+}
+
+// Sender returns the default sender address and name
+func (m *smtpMailer) Sender() (string, string) {
+	return m.conf.SenderAddress, m.conf.SenderName
 }
