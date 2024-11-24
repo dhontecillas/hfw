@@ -22,10 +22,10 @@ func nopInsighter() *Insighter {
 
 	nopMeterBuilder, err := metrics.NewNopMeterBuilder()
 	if err != nil {
-		l.Err(err, "cannot create nop builder")
+		l.Err(err, "cannot create nop builder", nil)
 	}
 	nopTracerBuilder := traces.NewNopTracerBuilder()
-	nopInsighterBuilder := NewInsighterBuilder([]TagDefinition{},
+	nopInsighterBuilder := NewInsighterBuilder(metrics.MetricDefinitionList{},
 		nopLoggerBuilder, nopMeterBuilder, nopTracerBuilder)
 
 	return nopInsighterBuilder()

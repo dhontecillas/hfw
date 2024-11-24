@@ -12,7 +12,7 @@ type MockMeter struct {
 	Recs     []string
 	RecsVals []float64
 	Adds     []string
-	AddsVals []float64
+	AddsVals []int64
 
 	Strs map[string]string
 }
@@ -25,7 +25,7 @@ func NewMockMeter() *MockMeter {
 		Recs:     []string{},
 		RecsVals: []float64{},
 		Adds:     []string{},
-		AddsVals: []float64{},
+		AddsVals: []int64{},
 		Strs:     map[string]string{},
 	}
 }
@@ -53,13 +53,13 @@ func (m *MockMeter) DecWL(key string, labels map[string]string) {
 }
 
 // Add adds an int value
-func (m *MockMeter) Add(key string, val float64) {
+func (m *MockMeter) Add(key string, val int64) {
 	m.Adds = append(m.Adds, key)
 	m.AddsVals = append(m.AddsVals, val)
 }
 
 // AddWL with labels that apply only to this record
-func (m *MockMeter) AddWL(key string, val float64, labels map[string]string) {
+func (m *MockMeter) AddWL(key string, val int64, labels map[string]string) {
 	m.Adds = append(m.Adds, key)
 	m.AddsVals = append(m.AddsVals, val)
 }

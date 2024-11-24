@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -39,7 +40,7 @@ func NewLogrus(w io.Writer) *Logrus {
 	} else {
 		l.Out = w
 	}
-	l.Level = logrus.TraceLevel
+	l.Level = logrus.DebugLevel
 	l.SetFormatter(&logrus.JSONFormatter{})
 	d := make(map[string]interface{}, logrusInitialDataCapacity)
 
@@ -79,247 +80,120 @@ func NewLogrusBuilder(conf *LogrusConf) (LoggerBuilderFn, func(), error) {
 	}, flush, nil
 }
 
-func (lr *Logrus) entry() *logrus.Entry {
+func (l *Logrus) entry() *logrus.Entry {
 	c := GetCaller()
-	lr.dataMux.Lock()
-	lr.data["file"] = fmt.Sprintf("%s:%d", c.File, c.Line)
-	e := lr.log.WithFields(lr.data)
-	lr.dataMux.Unlock()
+	l.dataMux.Lock()
+	e := l.log.WithFields(l.data)
+	l.dataMux.Unlock()
+	e = e.WithTime(time.Now())
+	e = e.WithField("file", fmt.Sprintf("%s:%d", c.File, c.Line))
 	return e
 }
 
 // Clone clones a Logrus logger.
-func (lr *Logrus) Clone() Logger {
-	lr.dataMux.RLock()
-	dataCap := len(lr.data) + logrusCloneExtraDataCapacity
+func (l *Logrus) Clone() Logger {
+	l.dataMux.RLock()
+	dataCap := len(l.data) + logrusCloneExtraDataCapacity
 	if dataCap < logrusInitialDataCapacity {
 		dataCap = logrusInitialDataCapacity
 	}
 	d := make(map[string]interface{}, dataCap)
-	for k, v := range lr.data {
+	for k, v := range l.data {
 		d[k] = v
 	}
-	lr.dataMux.RUnlock()
+	l.dataMux.RUnlock()
 	return &Logrus{
 		data: d,
-		log:  lr.log,
+		log:  l.log,
 	}
-}
-
-func (lr *Logrus) copyData() map[string]interface{} {
-	lr.dataMux.RLock()
-	dataCap := len(lr.data) + logrusCloneExtraDataCapacity
-	if dataCap < logrusInitialDataCapacity {
-		dataCap = logrusInitialDataCapacity
-	}
-	d := make(map[string]interface{}, dataCap)
-	for k, v := range lr.data {
-		d[k] = v
-	}
-	lr.dataMux.RUnlock()
-	return d
-}
-
-// Trace logs a message with the trace level
-func (lr *Logrus) Trace(msg string) {
-	lr.entry().Trace(msg)
 }
 
 // Debug logs a message with the debug level
-func (lr *Logrus) Debug(msg string) {
-	lr.entry().Debug(msg)
+func (l *Logrus) Debug(msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
+	}
+	e.Debug(msg)
 }
 
 // Info logs a message with the info level
-func (lr *Logrus) Info(msg string) {
-	lr.entry().Info(msg)
+func (l *Logrus) Info(msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
+	}
+	e.Info(msg)
 }
 
 // Warn logs a message with the warn level
-func (lr *Logrus) Warn(msg string) {
-	lr.entry().Warn(msg)
+func (l *Logrus) Warn(msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
+	}
+	e.Warn(msg)
 }
 
 // Err logs a message with the error level
-func (lr *Logrus) Err(err error, msg string) {
-	lr.entry().Error(err, msg)
+func (l *Logrus) Err(err error, msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	e = e.WithError(err)
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
+	}
+	e.Error(err, msg)
 }
 
 // Fatal logs a message with the fatal level
-func (lr *Logrus) Fatal(msg string) {
-	lr.entry().Fatal(msg)
+func (l *Logrus) Fatal(msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
+	}
+	e.Fatal(msg)
 }
 
 // Panic logs a message with the fatal level
-func (lr *Logrus) Panic(msg string) {
-	lr.entry().Panic(msg)
-}
-
-// TraceMsg creates a LogMsg that inherit the logger
-// tags with a trace level.
-func (lr *Logrus) TraceMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
+func (l *Logrus) Panic(msg string, attrMap map[string]interface{}) {
+	e := l.entry()
+	if attrMap != nil && len(attrMap) > 0 {
+		e = e.WithFields(attrMap)
 	}
-	lm.entry.Level = logrus.TraceLevel
-	lm.entry.Message = msg
-	return lm
-}
-
-// DebugMsg creates a LogMsg that inherit the logger
-// tags with a debug level.
-func (lr *Logrus) DebugMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.DebugLevel
-	lm.entry.Message = msg
-	return lm
-}
-
-// InfoMsg creates a LogMsg that inherit the logger
-// tags with a info level.
-func (lr *Logrus) InfoMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.InfoLevel
-	lm.entry.Message = msg
-	return lm
-}
-
-// WarnMsg creates a LogMsg that inherit the logger
-// tags with a warn level.
-func (lr *Logrus) WarnMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.WarnLevel
-	lm.entry.Message = msg
-	return lm
-}
-
-// ErrMsg creates a LogMsg that inherit the logger
-// tags with a error level.
-func (lr *Logrus) ErrMsg(err error, msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.ErrorLevel
-	lm.entry.Message = msg
-	if err != nil {
-		lm.data["error"] = err.Error()
-	}
-	return lm
-}
-
-// FatalMsg creates a LogMsg that inherit the logger
-// tags with a fatal level.
-func (lr *Logrus) FatalMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.FatalLevel
-	lm.entry.Message = msg
-	return lm
-}
-
-// PanicMsg creates a LogMsg that inherit the logger
-// tags with a panic level.
-func (lr *Logrus) PanicMsg(msg string) LogMsg {
-	lm := &LogrusMsg{
-		entry: lr.entry(),
-		data:  lr.copyData(),
-	}
-	lm.entry.Level = logrus.PanicLevel
-	lm.entry.Message = msg
-	return lm
+	e.Panic(msg)
 }
 
 // Str adds a tag to the logger of type string
-func (lr *Logrus) Str(key, val string) Logger {
-	lr.dataMux.Lock()
-	lr.data[key] = val
-	lr.dataMux.Unlock()
-	return lr
+func (l *Logrus) Str(key, val string) {
+	l.setAttr(key, val)
 }
 
 // I64 adds a tag to the logger of type int64
-func (lr *Logrus) I64(key string, val int64) Logger {
-	lr.dataMux.Lock()
-	lr.data[key] = val
-	lr.dataMux.Unlock()
-	return lr
+func (l *Logrus) I64(key string, val int64) {
+	l.setAttr(key, val)
 }
 
 // F64 adds a tag to the logger of type float64
-func (lr *Logrus) F64(key string, val float64) Logger {
-	lr.dataMux.Lock()
-	lr.data[key] = val
-	lr.dataMux.Unlock()
-	return lr
+func (l *Logrus) F64(key string, val float64) {
+	l.setAttr(key, val)
 }
 
 // Bool adds a tag to the logger of type bool
-func (lr *Logrus) Bool(key string, val bool) Logger {
-	lr.dataMux.Lock()
-	lr.data[key] = val
-	lr.dataMux.Unlock()
-	return lr
+func (l *Logrus) Bool(key string, val bool) {
+	l.setAttr(key, val)
 }
 
-// Labels sets labels for a logger in a batch
-func (lr *Logrus) Labels(labels map[string]interface{}) Logger {
-	lr.dataMux.Lock()
-	defer lr.dataMux.Unlock()
-	for k, v := range labels {
-		lr.data[k] = v
+func (l *Logrus) setAttr(key string, val interface{}) {
+	l.dataMux.Lock()
+	l.data[key] = val
+	l.dataMux.Unlock()
+}
+
+// SetAttrs sets labels for a logger in a batch
+func (l *Logrus) SetAttrs(attrMap map[string]interface{}) {
+	l.dataMux.Lock()
+	for k, v := range attrMap {
+		l.data[k] = v
 	}
-	return lr
-}
-
-// LogrusMsg is a message entry that can be built and
-// is not sent until is explicitly told to be sent.
-type LogrusMsg struct {
-	entry *logrus.Entry
-	data  map[string]interface{}
-}
-
-// Send the message that has been constructed.
-func (lm *LogrusMsg) Send() {
-	if lm.entry.Level == logrus.ErrorLevel {
-		lm.entry.WithFields(lm.data).Log(lm.entry.Level, lm.entry.Message)
-	} else {
-		lm.entry.WithFields(lm.data).Log(lm.entry.Level, lm.entry.Message)
-	}
-}
-
-// Str adds a tag to the message of type string.
-func (lm *LogrusMsg) Str(key, val string) LogMsg {
-	lm.data[key] = val
-	return lm
-}
-
-// I64 adds a tag to the message of type int64.
-func (lm *LogrusMsg) I64(key string, val int64) LogMsg {
-	lm.data[key] = val
-	return lm
-}
-
-// F64 adds a tag to the message of type float64.
-func (lm *LogrusMsg) F64(key string, val float64) LogMsg {
-	lm.data[key] = val
-	return lm
-}
-
-// Bool adds a tag to the message of type bool.
-func (lm *LogrusMsg) Bool(key string, val bool) LogMsg {
-	lm.data[key] = val
-	return lm
+	defer l.dataMux.Unlock()
 }

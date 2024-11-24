@@ -32,11 +32,11 @@ func (m *NopMeter) DecWL(key string, labels map[string]string) {
 }
 
 // Add adds an int value
-func (m *NopMeter) Add(key string, val float64) {
+func (m *NopMeter) Add(key string, val int64) {
 }
 
 // AddWL with labels that apply only to this record
-func (m *NopMeter) AddWL(key string, val float64, labels map[string]string) {
+func (m *NopMeter) AddWL(key string, val int64, labels map[string]string) {
 }
 
 // Rec records a value (similar to what a Gauge would be)

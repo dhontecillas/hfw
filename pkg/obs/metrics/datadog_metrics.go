@@ -1,9 +1,9 @@
 package metrics
 
 import (
-	"fmt"
 	"sync"
 
+	"github.com/dhontecillas/hfw/pkg/obs/attrs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/pkg/errors"
 
@@ -19,7 +19,7 @@ const (
 
 type datadogMetrics struct {
 	// read only catalog of the matrics
-	catalog Catalog
+	catalog MetricDefinitionList
 
 	// a single client shared across the application, as is a thread
 	// safe implementation
@@ -39,16 +39,15 @@ var _ Meter = (*DataDogMeter)(nil)
 
 // DataDogMeterConfig has the required configuration for a DataDotMeter
 type DataDogMeterConfig struct {
-	StatsDAddr  string
-	MetricDefs  Defs
-	DefaultRate float64
+	StatsDAddr  string  `json:"statsd_address"`
+	DefaultRate float64 `json:"default_rate"`
 }
 
 // NewDataDogMeterBuilder creates a function to create new DataDogMeter's
-func NewDataDogMeterBuilder(
-	l logs.Logger, conf *DataDogMeterConfig) (MeterBuilderFn, error) {
+func NewDataDogMeterBuilder(l logs.Logger, conf *DataDogMeterConfig,
+	metricDefs MetricDefinitionList) (MeterBuilderFn, error) {
 
-	catalog := conf.MetricDefs.Clean(l)
+	catalog, _ := metricDefs.CleanUp()
 
 	c, err := statsd.New(conf.StatsDAddr)
 	if err != nil {
@@ -74,7 +73,7 @@ func newDataDogMeter(l logs.Logger, metrics *datadogMetrics) *DataDogMeter {
 	return &DataDogMeter{
 		log:     l,
 		metrics: metrics,
-		data:    make(map[string]string, len(metrics.catalog.defs)),
+		data:    make(map[string]string, len(metrics.catalog)),
 	}
 }
 
@@ -85,29 +84,19 @@ func (m *DataDogMeter) Inc(key string) {
 
 // IncWL increases and integer value adding labels to this records
 func (m *DataDogMeter) IncWL(key string, labels map[string]string) {
-	d, _ := m.metrics.catalog.Def(key)
-	if d == nil {
-		m.log.WarnMsg("metric def not found").Str("name", key).Send()
-		return
+	var err error
+	var d *MetricDefinition
+	d, _, err = m.metrics.catalog.Def(key,
+		MetricTypeMonotonicCounter, MetricTypeUpDownCounter)
+	if err == nil {
+		err = m.metrics.client.Incr(key, m.fillLabels(d.Attributes, labels),
+			m.metrics.rate)
 	}
-	switch d.MetricType {
-	case MetricTypeMonotonicCounter:
-		err := m.metrics.client.Incr(key, m.fillLabels(d.Labels, labels), m.metrics.rate)
-		if err != nil {
-			m.log.ErrMsg(err, "cannot report metric").Str(
-				"key", key).I64("type", int64(d.MetricType)).Send()
-		}
-		return
-	case MetricTypeUpDownCounter:
-		err := m.metrics.client.Incr(key, m.fillLabels(d.Labels, labels), m.metrics.rate)
-		if err != nil {
-			m.log.ErrMsg(err, "cannot report metric").Str(
-				"key", key).I64("type", int64(d.MetricType)).Send()
-		}
-		return
-	default:
-		m.log.WarnMsg("metric operation (inc) invalid").Str("name", key).
-			I64("type", int64(d.MetricType)).Send()
+	if err != nil {
+		m.log.Debug("cannot report metric", map[string]interface{}{
+			"key":   key,
+			"error": err.Error(),
+		})
 	}
 }
 
@@ -118,58 +107,38 @@ func (m *DataDogMeter) Dec(key string) {
 
 // DecWL decreases an integer value adding labels to this record
 func (m *DataDogMeter) DecWL(key string, labels map[string]string) {
-	d, _ := m.metrics.catalog.Def(key)
-	if d == nil {
-		m.log.WarnMsg("metric def not found").Str("name", key).Send()
-		return
+	var err error
+	d, _, err := m.metrics.catalog.Def(key, MetricTypeUpDownCounter)
+	if err == nil {
+		err = m.metrics.client.Decr(key, m.fillLabels(d.Attributes, labels),
+			m.metrics.rate)
 	}
-	switch d.MetricType {
-	case MetricTypeUpDownCounter:
-		err := m.metrics.client.Decr(key, m.fillLabels(d.Labels, labels), m.metrics.rate)
-		if err != nil {
-			m.log.ErrMsg(err, "cannot report metric").Str(
-				"key", key).I64("type", int64(d.MetricType)).Send()
-		}
-		return
-	default:
-		m.log.WarnMsg("invalid add operation for metric").Str("name", key).Send()
+	if err != nil {
+		m.log.Debug("cannot report metric", map[string]interface{}{
+			"key":   key,
+			"error": err.Error(),
+		})
 	}
 }
 
 // Add adds an int value
-func (m *DataDogMeter) Add(key string, val float64) {
+func (m *DataDogMeter) Add(key string, val int64) {
 	m.AddWL(key, val, nil)
 }
 
 // AddWL with labels that apply only to this record
-func (m *DataDogMeter) AddWL(key string, val float64, labels map[string]string) {
-	d, _ := m.metrics.catalog.Def(key)
-	if d == nil {
-		m.log.WarnMsg("metric def not found").Str("name", key).Send()
-		return
+func (m *DataDogMeter) AddWL(key string, val int64, labels map[string]string) {
+	d, _, err := m.metrics.catalog.Def(key, MetricTypeMonotonicCounter,
+		MetricTypeUpDownCounter)
+	if err == nil {
+		err = m.metrics.client.Count(key, val,
+			m.fillLabels(d.Attributes, labels), m.metrics.rate)
 	}
-	v := int64(val)
-	switch d.MetricType {
-	case MetricTypeMonotonicCounter:
-		if v < 0 {
-			m.log.WarnMsg("invalid add operation for metric").Str("name", key).Send()
-			return
-		}
-		err := m.metrics.client.Count(key, v, m.fillLabels(d.Labels, labels), m.metrics.rate)
-		if err != nil {
-			m.log.ErrMsg(err, "cannot report metric").Str(
-				"key", key).I64("type", int64(d.MetricType)).Send()
-		}
-		return
-	case MetricTypeUpDownCounter:
-		err := m.metrics.client.Count(key, v, m.fillLabels(d.Labels, labels), m.metrics.rate)
-		if err != nil {
-			m.log.ErrMsg(err, "cannot report metric").Str(
-				"key", key).I64("type", int64(d.MetricType)).Send()
-		}
-		return
-	default:
-		m.log.WarnMsg("invalid add operation for metric").Str("name", key).Send()
+	if err != nil {
+		m.log.Debug("cannot report metric", map[string]interface{}{
+			"key":   key,
+			"error": err.Error(),
+		})
 	}
 }
 
@@ -180,30 +149,22 @@ func (m *DataDogMeter) Rec(key string, val float64) {
 
 // RecWL with labels that apply only to this record
 func (m *DataDogMeter) RecWL(key string, val float64, labels map[string]string) {
-	d, _ := m.metrics.catalog.Def(key)
-	if d == nil {
-		m.log.WarnMsg("metric def not found").Str("name", key).Send()
-		return
-	}
-	if d.MetricType != MetricTypeHistogram && d.MetricType != MetricTypeDistribution {
-		m.log.WarnMsg("invalid add operation for metric").Str(
-			"name", key).I64("type", int64(d.MetricType)).Send()
-		return
-	}
-
-	if d.MetricType == MetricTypeHistogram {
-		if err := m.metrics.client.Histogram(key, val,
-			m.fillLabels(d.Labels, labels), m.metrics.rate); err != nil {
-			m.log.Err(err, "cannot report Histogram")
+	d, _, err := m.metrics.catalog.Def(key, MetricTypeHistogram, MetricTypeDistribution)
+	if err == nil {
+		if d.MetricType == MetricTypeHistogram {
+			err = m.metrics.client.Histogram(key, val,
+				m.fillLabels(d.Attributes, labels), m.metrics.rate)
+		} else {
+			err = m.metrics.client.Distribution(key, val,
+				m.fillLabels(d.Attributes, labels), m.metrics.rate)
 		}
-		return
 	}
-	if d.MetricType == MetricTypeDistribution {
-		if err := m.metrics.client.Distribution(key, val,
-			m.fillLabels(d.Labels, labels), m.metrics.rate); err != nil {
-			m.log.Err(err, "cannot Distribution Histogram")
-		}
-		return
+	if err != nil {
+		// how to avoid having too many of these errors in prod ?
+		m.log.Debug("cannot report metric", map[string]interface{}{
+			"key":   key,
+			"error": err.Error(),
+		})
 	}
 }
 
@@ -215,23 +176,24 @@ func (m *DataDogMeter) Str(key string, val string) {
 }
 
 // fillLabels only fills the tags for the labels defined
-func (m *DataDogMeter) fillLabels(labels []string, labelVals map[string]string) []string {
-	vals := labelVals
-	if vals == nil {
-		vals = map[string]string{}
-	}
+func (m *DataDogMeter) fillLabels(attrDefs attrs.AttrDefinitionList,
+	labelVals map[string]string) []string {
+
+	var tags []string
+	extraLen := len(labelVals)
+
 	m.dataMux.RLock()
-	defer m.dataMux.RUnlock()
-	if len(m.data) == 0 {
-		return nil
-	}
-	tags := make([]string, 0, len(labels))
-	for _, l := range labels {
-		v, ok := vals[l]
+	existingLen := len(m.data)
+	tags = make([]string, 0, existingLen+extraLen)
+	for _, d := range attrDefs {
+		v, ok := labelVals[d.Name]
 		if !ok {
-			v = m.data[l]
+			v, ok = m.data[d.Name]
 		}
-		tags = append(tags, fmt.Sprintf("%s:%s", l, v))
+		if ok {
+			tags = append(tags, d.Name+":"+v)
+		}
 	}
+	m.dataMux.RUnlock()
 	return tags
 }

@@ -49,14 +49,14 @@ func (m *MultiMeter) DecWL(key string, labels map[string]string) {
 }
 
 // Add adds an int value
-func (m *MultiMeter) Add(key string, val float64) {
+func (m *MultiMeter) Add(key string, val int64) {
 	for _, w := range m.wrapped {
 		w.Add(key, val)
 	}
 }
 
 // AddWL with labels that apply only to this record
-func (m *MultiMeter) AddWL(key string, val float64, labels map[string]string) {
+func (m *MultiMeter) AddWL(key string, val int64, labels map[string]string) {
 	for _, w := range m.wrapped {
 		w.AddWL(key, val, labels)
 	}
