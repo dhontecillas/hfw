@@ -89,7 +89,8 @@ func main() {
 	tracerBuilder := traces.NewNopTracerBuilder()
 
 	// get the builder function for the Insights instance
-	insBuilder := obs.NewInsighterBuilder(metricDefs, logBuilder, meterBuilder, tracerBuilder)
+	insBuilder := obs.NewInsighterBuilder(metricDefs, logBuilder,
+		meterBuilder, tracerBuilder)
 
 	ins := insBuilder()
 

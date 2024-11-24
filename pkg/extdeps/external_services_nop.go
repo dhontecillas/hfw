@@ -19,7 +19,7 @@ func GetNopExternalServices() ExternalServices {
 	nopMeterBuilder, _ := metrics.NewNopMeterBuilder()
 	nopTracerBuilder := traces.NewNopTracerBuilder()
 
-	insBuilder := obs.NewInsighterBuilder([]obs.TagDefinition{},
+	insBuilder := obs.NewInsighterBuilder(metrics.MetricDefinitionList{},
 		logBuilder, nopMeterBuilder, nopTracerBuilder)
 	ins := insBuilder()
 

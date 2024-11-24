@@ -6,6 +6,9 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
+	metricattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
 	"github.com/spf13/viper"
 )
@@ -28,8 +31,7 @@ const (
 
 // InsightsConfig holds the information for the metrics
 type InsightsConfig struct {
-	TagDefs    []obs.TagDefinition
-	MetricDefs metrics.Defs
+	MetricDefs metrics.MetricDefinitionList
 
 	PrometheusEnabled bool   // prometheus enabled or not
 	PrometheusPort    int    // port where serving the metrics
@@ -93,64 +95,9 @@ func (ic *InsightsConfig) loadSentryConfig(confPrefix string) {
 	}
 }
 
-func defaultMetricsConfig() metrics.Defs {
-	requestLabels := []string{
-		metrics.AttrRoute,
-		metrics.AttrMethod,
-	}
-
-	responseLabels := []string{
-		metrics.AttrStatus,
-		metrics.AttrStatusGroup,
-	}
-	responseLabels = append(responseLabels, requestLabels...)
-
-	dbconnErrorLabels := []string{
-		metrics.AttrDBSQLAddress,
-		metrics.AttrDBSQLDatasource,
-	}
-	dbconnErrorLabels = append(dbconnErrorLabels, requestLabels...)
-
-	redisconnErrorLabels := []string{
-		metrics.AttrDBRedisPool,
-		metrics.AttrDBRedisAddress,
-	}
-	redisconnErrorLabels = append(redisconnErrorLabels, requestLabels...)
-
-	distributionMetrics := map[string][]string{
-		metrics.MetReqDuration:      responseLabels,
-		metrics.MetHTTPResponseSize: responseLabels,
-		metrics.MetDBQueryDuration:  responseLabels,
-		metrics.MetDBConnError:      responseLabels,
-		metrics.MetRedisConnError:   redisconnErrorLabels,
-	}
-
-	countMetrics := map[string][]string{
-		metrics.MetReqCount:       responseLabels,
-		metrics.MetReqTimeout:     responseLabels,
-		metrics.MetDBConnError:    dbconnErrorLabels,
-		metrics.MetRedisConnError: redisconnErrorLabels,
-	}
-
-	mDefs := make(metrics.Defs, 0, len(distributionMetrics))
-
-	for dm, lbls := range distributionMetrics {
-		mDefs = append(mDefs, metrics.Def{
-			Name:       dm,
-			MetricType: metrics.MetricTypeHistogram,
-			Labels:     lbls,
-		})
-	}
-
-	for cm, lbls := range countMetrics {
-		mDefs = append(mDefs, metrics.Def{
-			Name:       cm,
-			MetricType: metrics.MetricTypeMonotonicCounter,
-			Labels:     lbls,
-		})
-	}
-
-	return mDefs
+func defaultMetricsConfig() metrics.MetricDefinitionList {
+	metricDefs := metricsdefaults.HTTPDefaultMetricDefinitions()
+	return metricDefs
 }
 
 // ReadInsightsConfig reads the configuration for "routing" the
@@ -158,52 +105,8 @@ func defaultMetricsConfig() metrics.Defs {
 // loads the configuration for logs / metrics / traces services.
 func ReadInsightsConfig(confPrefix string) *InsightsConfig {
 	conf := &InsightsConfig{
-		TagDefs: []obs.TagDefinition{
-			obs.TagDefinition{
-				Name:    metrics.AttrStatus,
-				TagType: obs.TagTypeI64,
-				ToL:     true,
-				ToM:     true,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    metrics.AttrRoute,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    logs.AttrPath,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    metrics.AttrMethod,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    logs.AttrReqID,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    logs.AttrRemoteIP,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     false,
-			},
-		},
+		MetricDefs: defaultMetricsConfig(),
 	}
-	conf.MetricDefs = defaultMetricsConfig()
 	conf.loadPrometheusConfig(confPrefix)
 	conf.loadGraylogConfig(confPrefix)
 	conf.loadSentryConfig(confPrefix)
@@ -214,7 +117,7 @@ func ReadInsightsConfig(confPrefix string) *InsightsConfig {
 // function, based on the insConf configuration. It can also merge
 // a list of additional metric definitions.
 func CreateInsightsBuilder(insConf *InsightsConfig,
-	metricDefs metrics.Defs) (obs.InsighterBuilderFn, func()) {
+	metricDefs metrics.MetricDefinitionList) (obs.InsighterBuilderFn, func()) {
 
 	if len(metricDefs) > 0 {
 		mDefs := insConf.MetricDefs.Merge(metricDefs, false)
@@ -270,14 +173,14 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 			FlushTimeoutSecs: 2,
 			LevelThreshold:   "warning",
 			AllowedTags: []string{
-				metrics.AttrApp,
-				metrics.AttrMethod,
-				metrics.AttrRoute,
-				logs.AttrPath,
-				logs.AttrRemoteIP,
-				logs.AttrReqID,
-				metrics.AttrStatus,
-				metrics.AttrStatusGroup,
+				metricattrs.AttrApp,
+				metricattrs.AttrHTTPMethod,
+				metricattrs.AttrHTTPRoute,
+				traceattrs.AttrHTTPPath,
+				traceattrs.AttrHTTPRemoteIP,
+				"req_id",
+				metricattrs.AttrHTTPStatus,
+				metricattrs.AttrStatusGroup,
 			},
 		}
 		sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(sentryConf)

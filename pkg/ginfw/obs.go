@@ -14,9 +14,7 @@ import (
 
 func headersToString(headers http.Header) string {
 	var hb strings.Builder
-
 	// TODO: we want the headers sorted by name
-
 	for k, v := range headers {
 		hb.WriteString(k)
 		hb.WriteString(":[")

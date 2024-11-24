@@ -55,3 +55,9 @@ services:
       - loki
       - promtail
       - tempo
+  mailcatcher:
+    container_name: "mailcatcher_example"
+    image: "sj26/mailcatcher:latest"
+    ports: 
+      - "1080:1080"
+      - "1025:1025"

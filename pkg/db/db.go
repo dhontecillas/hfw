@@ -39,7 +39,7 @@ type sqlDB struct {
 // TODO: we should return an error if this can fail
 func (s *sqlDB) Master() *sqlx.DB {
 	if s.master == nil {
-		s.ins.L.Warn("master sqlx.DB connection is nil")
+		s.ins.L.Warn("master sqlx.DB connection is nil", nil)
 		if err := s.connect(); err != nil {
 			return nil
 		}
@@ -51,7 +51,7 @@ func (s *sqlDB) Master() *sqlx.DB {
 func (s *sqlDB) Close() {
 	if s.master != nil {
 		if err := s.master.Close(); err != nil {
-			s.ins.L.Err(err, "closing connection")
+			s.ins.L.Err(err, "closing connection", nil)
 		}
 		s.master = nil
 	}
@@ -61,7 +61,7 @@ func (s *sqlDB) Close() {
 func (s *sqlDB) connect() error {
 	masterDB, err := sqlx.Connect("postgres", s.connString)
 	if err != nil {
-		s.ins.L.Err(err, "cannot connect to server")
+		s.ins.L.Err(err, "cannot connect to server", nil)
 		return fmt.Errorf("cannot connect to db server")
 	}
 	s.master = masterDB
@@ -71,7 +71,7 @@ func (s *sqlDB) connect() error {
 // NewSQLDB creates a connection to a database.
 func NewSQLDB(ins *obs.Insighter, conf *Config) SQLDB {
 	if conf == nil {
-		ins.L.Warn("No config for SQL DB provided")
+		ins.L.Warn("No config for SQL DB provided", nil)
 		return nil
 	}
 
@@ -83,7 +83,9 @@ func NewSQLDB(ins *obs.Insighter, conf *Config) SQLDB {
 	}
 	if err := sDB.connect(); err != nil {
 		// we might be able to connect later
-		ins.L.Err(err, fmt.Sprintf("cannot connect to the db sever: %s", err.Error()))
+		ins.L.Err(err, "cannot connect to db server", map[string]interface{}{
+			"conn_string": connString,
+		})
 	}
 	return sDB
 }
