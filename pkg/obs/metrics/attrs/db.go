@@ -1,5 +1,5 @@
-package metrics
+package attrs
 
 import (
-	"go.opentelemetry.io/otel/semconv/v1.27.0"
+// "go.opentelemetry.io/otel/semconv/v1.27.0"
 )

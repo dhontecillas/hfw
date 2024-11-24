@@ -11,11 +11,11 @@ const (
 	// we should provide the query template, not the query with
 	// the params replaced (to not leak sensitive data)
 	// In a transactio,, all the queries should be concatenated with `;`
-	AttrDBQueryText string = string(semconv.DBQueryText)
+	AttrDBQueryText string = string(semconv.DBQueryTextKey)
 
 	// AttrDBCollection name: makes only sense for a single query,
 	// but not a full transaction
-	AttrDBCollectionName = string(semconv.DBCollectionName)
+	AttrDBCollectionName = string(semconv.DBCollectionNameKey)
 
 	// AttrDBNamespace the fully qualified name of the connection to the db:
 	// host:port:dbname:namespace

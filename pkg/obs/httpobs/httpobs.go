@@ -1,23 +1,36 @@
 package httpobs
 
 import (
-	"context"
+	"fmt"
 	"net/http"
+
+	metricattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	traceattrs "github.com/dhontecillas/hfw/pkg/obs/traces/attrs"
 )
 
-// HTTPObs has values extracted from a request
-type HTTPObs struct {
-	Request *http.Request
-	StrTags map[string]string
-}
-
+// TODO: how to make fields private ?
+// auth headers ? cookies ?
+//
 // ExtractTelemetryRequestAndFields creates a new request with fields
 // that should be kept private removed, and a list of tags that
 // can be fed to the Insighter interface
-func ExtractTelemetryRequestAndFields(req *http.Request) (*HTTPObs, error) {
-	// TODO: this probably needs some work :)
-	return &HTTPObs{
-		Request: req.Clone(context.Background()),
-		StrTags: make(map[string]string),
+func ExtractTelemetryFields(req *http.Request) (map[string]interface{}, error) {
+	if req == nil {
+		return nil, fmt.Errorf("nil pointer")
+	}
+
+	// TODO: add headers, and cookies, current timestamp
+	return map[string]interface{}{
+		metricattrs.AttrHTTPMethod: req.Method,
+		traceattrs.AttrHTTPPath:    req.URL.Path,
 	}, nil
+}
+
+type ObsResponseWriter struct {
+}
+
+type ObsBodyReader struct {
+}
+
+type ObsBodyWriter struct {
 }

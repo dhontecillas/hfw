@@ -1,7 +1,9 @@
-package metrics
+package attrs
 
 import (
 	"go.opentelemetry.io/otel/semconv/v1.27.0"
+
+	obsattrs "github.com/dhontecillas/hfw/pkg/obs/attrs"
 )
 
 // Attributes that can appear in http requests
@@ -27,8 +29,29 @@ const (
 	MetHTTPServerRequestDuration = string(semconv.HTTPServerRequestDurationName)
 
 	// histogram: http.server.request.body.size (including headers)
-	MetHTTPRequestBodySize = string(semconv.HTTPServerRequestBodySizeName)
+	MetHTTPServerRequestBodySize = string(semconv.HTTPServerRequestBodySizeName)
 
 	// histogram: http.server.response.body.size (including headers)
-	MetHTTPResponseBodySize = string(semconv.HTTPServerResponseBodySizeName)
+	MetHTTPServerResponseBodySize = string(semconv.HTTPServerResponseBodySizeName)
+)
+
+var (
+	AttrListHTTP = obsattrs.AttrDefinitionList{
+		obsattrs.AttrDefinition{
+			Name:        AttrHTTPMethod,
+			StrAttrType: "str",
+		},
+		obsattrs.AttrDefinition{
+			Name:        AttrHTTPRoute,
+			StrAttrType: "str",
+		},
+		obsattrs.AttrDefinition{
+			Name:        AttrHTTPStatus,
+			StrAttrType: "i64",
+		},
+		obsattrs.AttrDefinition{
+			Name:        AttrHTTPStatusGroup,
+			StrAttrType: "i64",
+		},
+	}
 )

@@ -9,14 +9,23 @@ It expects to have these env vars set:
 package main
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/obs"
+	"github.com/dhontecillas/hfw/pkg/obs/attrs"
+	"github.com/dhontecillas/hfw/pkg/obs/httpobs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
+	metattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
 )
 
@@ -57,13 +66,17 @@ func main() {
 		}
 	}
 
+	metricDefs := metricsdefaults.HTTPDefaultMetricDefinitions()
+	metricDefs, _ = metricDefs.CleanUp()
+
 	// we can have several log builders and wrap them to have logs sent to
 	// different places
 	logBuilder := logs.NewMultiLoggerBuilder(logBuilders...)
 
 	startupLogger := logBuilder()
 	// example of sending metrics to multiple meters
-	mPromBuilder := buildPrometheusMeterBuilder(startupLogger)
+	mPromBuilder := buildPrometheusMeterBuilder(startupLogger, metricDefs)
+
 	mNopBuilder, err := metrics.NewNopMeterBuilder()
 	if err != nil {
 		return
@@ -76,61 +89,24 @@ func main() {
 	tracerBuilder := traces.NewNopTracerBuilder()
 
 	// get the builder function for the Insights instance
-	insBuilder := obs.NewInsighterBuilder(
-		[]obs.TagDefinition{
-			obs.TagDefinition{
-				Name:    "path",
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     false,
-			},
-			obs.TagDefinition{
-				Name:    "req_id",
-				TagType: obs.TagTypeI64,
-				ToL:     true,
-				ToM:     true,
-				ToT:     false,
-			},
-		},
-		logBuilder, meterBuilder, tracerBuilder)
+	insBuilder := obs.NewInsighterBuilder(metricDefs, logBuilder, meterBuilder, tracerBuilder)
 
-	maxConcurrent := 200
-	maxLatency := 500
-	minLatency := 70
+	ins := insBuilder()
 
-	endChan := make(chan interface{}, maxConcurrent)
-	concurrent := 0
+	// create a test server with delays between 70 and 500 ms
+	s := httptest.NewServer(newFakeHandler(ins, 70, 500))
+	defer s.Close()
 
-	fakePaths := []string{"marge", "homer", "bart", "lisa", "maggie"}
-	fakeMethods := []string{"GET", "POST", "GET", "PUT", "GET", "GET", "POST", "DELETE"}
-	fakeVersions := []int{1, 2, 3}
+	ctx, cancel := context.WithCancel(context.Background())
+	// launch 20 clients, making requests with a delay of 1 second
+	// per request and a jitter of about 1 second
+	launchClients(ctx, ins, s.URL, 20, time.Second, time.Second)
 
-	cntr := 0
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for ; ; cntr++ {
-		if concurrent >= maxConcurrent {
-			// wait for half of the fake goroutines to finish
-			for ii := 0; ii < maxConcurrent/2; ii++ {
-				<-endChan
-				concurrent--
-			}
-		}
-
-		concurrent++
-		ins := insBuilder()
-
-		// create a fake path
-		path := fmt.Sprintf("/v%d/%s", cntr%len(fakeVersions),
-			fakePaths[cntr%len(fakePaths)])
-
-		var fakeLatency int64 = int64(minLatency) + int64(r.Uint64()%uint64(maxLatency-minLatency))
-		go newFakeRequest(endChan, ins, int64(cntr), path, fakeMethods[cntr%len(fakeMethods)],
-			fakeLatency, 2)
-		time.Sleep(time.Millisecond)
-		// stop it
-		// break
-	}
+	fmt.Printf("waiting for 10 secs ...")
+	time.Sleep(time.Second * 10)
+	cancel()
+	fmt.Printf("shutting down ... ")
+	time.Sleep(time.Second * 2)
 }
 
 func buildLogrusLogger() (logs.LoggerBuilderFn, func()) {
@@ -149,26 +125,19 @@ func buildLogrusLogger() (logs.LoggerBuilderFn, func()) {
 	return lB, lBFlush
 }
 
-func buildPrometheusMeterBuilder(l logs.Logger) metrics.MeterBuilderFn {
+func buildPrometheusMeterBuilder(l logs.Logger,
+	mdefs metrics.MetricDefinitionList) metrics.MeterBuilderFn {
+
 	pConf := metrics.PrometheusConfig{
 		ServerPort: ":9876",
 		ServerPath: "/prom_metrics",
-		MetricDefinitions: []metrics.Def{
-			metrics.Def{
-				Name:       "requests",
-				MetricType: metrics.MetricTypeMonotonicCounter,
-				Labels:     []string{"path", "verb"},
-			},
-			metrics.Def{
-				Name:       "concurrent_requests",
-				MetricType: metrics.MetricTypeUpDownCounter,
-				Labels:     []string{"verb"},
-			},
-		},
 	}
-	pmBuilder, err := metrics.NewPrometheusMeterBuilder(l, &pConf)
+	pmBuilder, err := metrics.NewPrometheusMeterBuilder(l, &pConf, mdefs)
 	if err != nil {
-		l.Err(err, "Cannot create meter")
+		l.Err(err, "Cannot create meter", map[string]interface{}{
+			"port": pConf.ServerPort,
+			"path": pConf.ServerPath,
+		})
 		return nil
 	}
 
@@ -178,37 +147,110 @@ func buildPrometheusMeterBuilder(l logs.Logger) metrics.MeterBuilderFn {
 	return pmBuilder
 }
 
-func newFakeRequest(endChan chan interface{}, ins *obs.Insighter,
-	reqID int64, path string, method string,
-	millis int64, spawnSubprocess int64) {
-
-	ins.Str("path", path)
-	ins.I64("req_id", reqID)
-	ins.M.Str("path", path)
-	ins.M.Str("verb", method)
-	ins.M.Inc("concurrent_requests")
-	ins.M.Inc("requests")
-
-	tr := ins.T.Start("newFakeRequest")
-	defer tr.End()
-	tr.Str("lol", "bah")
-	ins.L.Str("trace_id", tr.TraceID())
-
-	st := time.Now()
-	et := st.Add(time.Duration(time.Millisecond) * time.Duration(millis))
-
-	ins.L.Info(fmt.Sprintf("Request %d start %v , end %v", reqID, st, et))
-	for ; et.After(time.Now()); time.Sleep(time.Millisecond * time.Duration(50)) {
-		if spawnSubprocess > 0 {
-			spawnSubprocess--
-			subIns := ins.CloneWith(ins.L.Clone(), ins.M, tr)
-			go newBgProc(subIns)
-		}
-		ins.M.Inc("requests")
+// the matched route cannot be extracted from the request, but from
+// the router that is handling it
+func SetReqAttrs(r *http.Request, route string, at attrs.Attributable) {
+	if f, e := httpobs.ExtractTelemetryFields(r); e != nil {
+		f[metattrs.AttrHTTPRoute] = route
+		at.SetAttrs(f)
 	}
-	// signal the end of the goroutine
-	ins.M.Dec("concurrent_requests")
-	endChan <- nil
+}
+
+func newFakeHandler(ins *obs.Insighter, minLatency time.Duration, maxLatency time.Duration) http.HandlerFunc {
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	latencyExtra := maxLatency - minLatency
+	return func(w http.ResponseWriter, r *http.Request) {
+		lat := minLatency + time.Duration(float64(latencyExtra)*rnd.Float64())
+		// TODO: add background processes to see traces
+		// bgProcs := rnd.Intn(3)
+
+		time.Sleep(lat)
+		h := w.Header()
+		h.Add("X-Fake", "fake value")
+		w.WriteHeader(200)
+		w.Write([]byte("{'foo': bar}"))
+	}
+}
+
+func launchClients(ctx context.Context, ins *obs.Insighter, URL string,
+	numClients int, period time.Duration, jitter time.Duration) {
+
+	for i := 0; i < numClients; i++ {
+		go fakeClient(ctx, ins, period, jitter, URL)
+	}
+}
+
+// fakeClient keeps launching requests to a server randomly
+// until the context is cancelled
+//
+// period -> the time it waits after sending a request
+func fakeClient(ctx context.Context, ins *obs.Insighter, period time.Duration,
+	jitter time.Duration, host string) {
+
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	tk := time.NewTicker(period)
+	for {
+		select {
+		case <-tk.C:
+			sendClientRequest(ins, host, rnd)
+			time.Sleep(period + time.Duration(float64(jitter)*rnd.Float64()))
+		case <-ctx.Done():
+			break
+		}
+	}
+}
+
+func sendClientRequest(ins *obs.Insighter, host string, rnd *rand.Rand) {
+	methods := []string{
+		"GET",
+		"POST",
+		"PUT",
+		"GET",
+		"DELETE",
+		"POST",
+		"GET",
+	}
+	paths := []string{
+		"/marge",
+		"/homer",
+		"/bart",
+	}
+	bodies := []string{
+		"{ 'foo': 'bar' }",
+		"{ 'a': 23, 'b': 12}",
+	}
+
+	m := methods[rnd.Intn(len(methods))]
+	var b io.Reader
+	b = http.NoBody
+	if m == "POST" || m == "PUT" {
+		b = bytes.NewReader([]byte(bodies[rnd.Intn(len(bodies))]))
+	}
+	path := paths[rnd.Intn(len(paths))]
+	url := host + path
+	r, err := http.NewRequest(m, url, b)
+	if err != nil {
+		ins.L.Info("cannot create request", map[string]interface{}{
+			"method": m,
+			"url":    url,
+			"err":    err,
+		})
+	}
+
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		ins.L.Info("cannot execute request", map[string]interface{}{
+			"method": m,
+			"url":    url,
+			"err":    err,
+		})
+	} else {
+		ins.L.Info("got response", map[string]interface{}{
+			"resp": fmt.Sprintf("%+v", resp),
+		})
+	}
 }
 
 func newBgProc(ins *obs.Insighter) {

@@ -1,4 +1,4 @@
-package metrics
+package attrs
 
 import (
 	"go.opentelemetry.io/otel/semconv/v1.27.0"
@@ -14,7 +14,7 @@ const (
 // Signals and attributes for database metrics
 const (
 	AttrDBSystem    string = string(semconv.DBSystemKey)
-	AtrrDBNamespace string = string(semconv.DBNamespace)
+	AtrrDBNamespace string = string(semconv.DBNamespaceKey)
 
 	AttrDBErrorType string = string(semconv.ErrorTypeKey)
 

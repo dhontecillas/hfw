@@ -196,7 +196,7 @@ func (pm *PrometheusMeter) AddWL(key string, val int64, labels map[string]string
 		MetricTypeUpDownCounter)
 	if err != nil {
 		pm.log.Debug("cannot find metric", map[string]interface{}{
-			"key":   mdef.Name,
+			"key":   key,
 			"error": err.Error(),
 		})
 		return
