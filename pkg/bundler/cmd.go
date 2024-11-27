@@ -59,7 +59,7 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 	shouldCollect := v.GetBool(confPrefix + KeyBundlerCollectMigrations)
 	if shouldCollect {
 		if err := UpdateMigrationsFromConfig(v, l, confPrefix); err != nil {
-			l.Err(err, fmt.Sprintf("cannot update migration from config: %s", err.Error()))
+			l.Err(err, "cannot update migration from config", nil)
 		}
 	}
 
@@ -67,7 +67,7 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 	if len(migrateVer) > 0 {
 		err := ApplyMigrationsFromConfig(migrateVer, v, l, confPrefix)
 		if err != nil {
-			l.Err(err, fmt.Sprintf("cannot apply migration: %s", err.Error()))
+			l.Err(err, "cannot apply migration", nil)
 		}
 	}
 
@@ -76,7 +76,7 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 		scanDirs := v.GetStringSlice(confPrefix + KeyBundlerPackExtraDirs)
 		projDir, err := os.Getwd()
 		if err != nil {
-			l.Err(err, " cannot read working directory")
+			l.Err(err, "cannot read working directory", nil)
 			return
 		}
 		//  get the bundle variant
@@ -86,11 +86,11 @@ func ExecuteBundlerOperations(v *viper.Viper, l logs.Logger, confPrefix string) 
 		variant := v.GetString(KeyBundlerPackVariant)
 		err = PrepareBundle(projDir, bundleDstDir, scanDirs, variant)
 		if err != nil {
-			l.Err(err, "cannot prepare bundle")
+			l.Err(err, "cannot prepare bundle", nil)
 			return
 		}
 	} else {
-		l.Info("not bundling enabled")
+		l.Info("not bundling enabled", nil)
 	}
 }
 

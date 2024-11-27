@@ -7,9 +7,9 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
 	metricattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
-	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
+	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/traces/attrs"
 	"github.com/spf13/viper"
 )
 
@@ -131,7 +131,7 @@ func CreateInsightsBuilder(insConf *InsightsConfig,
 
 	nopTracerBuilder := traces.NewNopTracerBuilder()
 
-	insB := obs.NewInsighterBuilder(insConf.TagDefs, logBuilder,
+	insB := obs.NewInsighterBuilder(metricDefs, logBuilder,
 		meterBuilder, nopTracerBuilder)
 
 	flushFn := multiFlushFn(logsFlushFn, meterFlushFn)
@@ -176,16 +176,16 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 				metricattrs.AttrApp,
 				metricattrs.AttrHTTPMethod,
 				metricattrs.AttrHTTPRoute,
-				traceattrs.AttrHTTPPath,
-				traceattrs.AttrHTTPRemoteIP,
+				tracesattrs.AttrHTTPPath,
+				tracesattrs.AttrHTTPRemoteIP,
 				"req_id",
 				metricattrs.AttrHTTPStatus,
-				metricattrs.AttrStatusGroup,
+				metricattrs.AttrHTTPStatusGroup,
 			},
 		}
 		sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(sentryConf)
 		if err != nil {
-			l.Err(err, "cannot create sentry logger builder")
+			l.Err(err, "cannot create sentry logger builder", nil)
 		} else {
 			loggerBuilders = append(loggerBuilders, sentryBuilder)
 			flushers = append(flushers, sentryFlush)
@@ -205,15 +205,15 @@ func newMeterBuilder(l logs.Logger, conf *InsightsConfig) (metrics.MeterBuilderF
 	if conf.PrometheusEnabled {
 		strPort := fmt.Sprintf(":%d", conf.PrometheusPort)
 		promConf := &metrics.PrometheusConfig{
-			ServerPort:        strPort,
-			ServerPath:        conf.PrometheusPath,
-			MetricDefinitions: conf.MetricDefs,
-			MetricsPrefix:     conf.PrometheusPrefix,
+			ServerPort:    strPort,
+			ServerPath:    conf.PrometheusPath,
+			MetricsPrefix: conf.PrometheusPrefix,
 		}
 
-		promMeterBuilder, err := metrics.NewPrometheusMeterBuilder(l, promConf)
+		promMeterBuilder, err := metrics.NewPrometheusMeterBuilder(l, promConf,
+			conf.MetricDefs)
 		if err != nil {
-			l.Err(err, "cannot create prometheus meter builder")
+			l.Err(err, "cannot create prometheus meter builder", nil)
 		} else {
 			enabledMeters = append(enabledMeters, promMeterBuilder)
 		}
@@ -230,7 +230,7 @@ func newMeterBuilder(l logs.Logger, conf *InsightsConfig) (metrics.MeterBuilderF
 	}
 	meterBuilder, err := metrics.NewMultiMeterBuilder(l, enabledMeters...)
 	if err != nil {
-		l.Err(err, "cannot send metrics to multiple sinks, defaulting to first one")
+		l.Err(err, "cannot send metrics to multiple sinks, defaulting to first one", nil)
 		return enabledMeters[0], func() {}
 	}
 	return meterBuilder, func() {}

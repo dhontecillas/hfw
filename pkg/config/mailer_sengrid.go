@@ -39,8 +39,8 @@ func newSendgridMailer(ins *obs.Insighter, confPrefix string,
 	if err != nil {
 		return nil, err
 	}
-	ins.L.Info(fmt.Sprintf("new sendgrid config %#v", conf))
+	ins.L.Info(fmt.Sprintf("new sendgrid config %#v", conf), nil)
 	m, err := mailer.NewSendGridMailer(conf.Key, from, name)
-	ins.L.Info(fmt.Sprintf("created mailer: %#v", m))
+	ins.L.Info(fmt.Sprintf("created mailer: %#v", m), nil)
 	return m, err
 }
