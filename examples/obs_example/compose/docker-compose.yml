@@ -30,7 +30,7 @@ services:
     domainname: tempo
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
-      - "vol_obs_example_tempo:/tmp/tempo"
+      - "./conf/tempo/tempo.yaml:/etc/tempo.yaml"
     ports:
       - "3200:3200"     # tempo
       - "9095:9095"     # tempo grpc

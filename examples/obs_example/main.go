@@ -38,6 +38,7 @@ const (
 func main() {
 	fmt.Println("----------=== obs example ===----------")
 	fmt.Println("")
+	ctx := context.Background()
 
 	logBuilders := make([]logs.LoggerBuilderFn, 0, 4)
 	logrusBuilder, logrusFlush := buildLogrusLogger()
@@ -86,7 +87,13 @@ func main() {
 		return
 	}
 
-	tracerBuilder := traces.NewNopTracerBuilder()
+	// tracerBuilder := traces.NewNopTracerBuilder()
+	tracerBuilder := traces.NewOTELTracerBuilder(ctx, startupLogger, &traces.OTELTracerConfig{
+		Host:       "localhost",
+		Port:       54317,
+		UseHTTP:    false,
+		SampleRate: 1.0,
+	}, "obs_example", "v0.0.1")
 
 	// get the builder function for the Insights instance
 	insBuilder := obs.NewInsighterBuilder(metricDefs, logBuilder,
@@ -163,6 +170,8 @@ func newFakeHandler(ins *obs.Insighter, minLatency time.Duration, maxLatency tim
 
 	latencyExtra := maxLatency - minLatency
 	return func(w http.ResponseWriter, r *http.Request) {
+		span := ins.T.Start(r.Context(), "request", nil)
+		defer span.End()
 		lat := minLatency + time.Duration(float64(latencyExtra)*rnd.Float64())
 		// TODO: add background processes to see traces
 		// bgProcs := rnd.Intn(3)
@@ -255,7 +264,8 @@ func sendClientRequest(ins *obs.Insighter, host string, rnd *rand.Rand) {
 }
 
 func newBgProc(ins *obs.Insighter) {
-	tr := ins.T.Start("newBgProc")
+	// TODO: use the appropiate context:
+	tr := ins.T.Start(context.Background(), "newBgProc", nil)
 	defer tr.End()
 	time.Sleep(time.Millisecond * time.Duration(20))
 }
