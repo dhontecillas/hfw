@@ -28,7 +28,7 @@ func (m *MultiMeter) Inc(key string) {
 }
 
 // IncWL increases and integer value adding labels to this records
-func (m *MultiMeter) IncWL(key string, labels map[string]string) {
+func (m *MultiMeter) IncWL(key string, labels map[string]interface{}) {
 	for _, w := range m.wrapped {
 		w.IncWL(key, labels)
 	}
@@ -42,7 +42,7 @@ func (m *MultiMeter) Dec(key string) {
 }
 
 // DecWL decreases an integer value adding labels to this record
-func (m *MultiMeter) DecWL(key string, labels map[string]string) {
+func (m *MultiMeter) DecWL(key string, labels map[string]interface{}) {
 	for _, w := range m.wrapped {
 		w.DecWL(key, labels)
 	}
@@ -56,7 +56,7 @@ func (m *MultiMeter) Add(key string, val int64) {
 }
 
 // AddWL with labels that apply only to this record
-func (m *MultiMeter) AddWL(key string, val int64, labels map[string]string) {
+func (m *MultiMeter) AddWL(key string, val int64, labels map[string]interface{}) {
 	for _, w := range m.wrapped {
 		w.AddWL(key, val, labels)
 	}
@@ -70,7 +70,7 @@ func (m *MultiMeter) Rec(key string, val float64) {
 }
 
 // RecWL with labels that apply only to this record
-func (m *MultiMeter) RecWL(key string, val float64, labels map[string]string) {
+func (m *MultiMeter) RecWL(key string, val float64, labels map[string]interface{}) {
 	for _, w := range m.wrapped {
 		w.RecWL(key, val, labels)
 	}
@@ -80,6 +80,13 @@ func (m *MultiMeter) RecWL(key string, val float64, labels map[string]string) {
 func (m *MultiMeter) Str(key string, val string) {
 	for _, w := range m.wrapped {
 		w.Str(key, val)
+	}
+}
+
+// SetAttrs sets a label value for all metrics that have defined it
+func (m *MultiMeter) SetAttrs(attrMap map[string]interface{}) {
+	for _, w := range m.wrapped {
+		w.SetAttrs(attrMap)
 	}
 }
 

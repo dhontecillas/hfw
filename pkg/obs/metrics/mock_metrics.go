@@ -38,7 +38,7 @@ func (m *MockMeter) Inc(key string) {
 }
 
 // IncWL increases and integer value adding labels to this records
-func (m *MockMeter) IncWL(key string, labels map[string]string) {
+func (m *MockMeter) IncWL(key string, labels map[string]interface{}) {
 	m.Incs = append(m.Incs, key)
 }
 
@@ -48,7 +48,7 @@ func (m *MockMeter) Dec(key string) {
 }
 
 // DecWL decreases an integer value adding labels to this record
-func (m *MockMeter) DecWL(key string, labels map[string]string) {
+func (m *MockMeter) DecWL(key string, labels map[string]interface{}) {
 	m.Decs = append(m.Decs, key)
 }
 
@@ -59,7 +59,7 @@ func (m *MockMeter) Add(key string, val int64) {
 }
 
 // AddWL with labels that apply only to this record
-func (m *MockMeter) AddWL(key string, val int64, labels map[string]string) {
+func (m *MockMeter) AddWL(key string, val int64, labels map[string]interface{}) {
 	m.Adds = append(m.Adds, key)
 	m.AddsVals = append(m.AddsVals, val)
 }
@@ -71,7 +71,7 @@ func (m *MockMeter) Rec(key string, val float64) {
 }
 
 // RecWL with labels that apply only to this record
-func (m *MockMeter) RecWL(key string, val float64, labels map[string]string) {
+func (m *MockMeter) RecWL(key string, val float64, labels map[string]interface{}) {
 	m.Recs = append(m.Recs, key)
 	m.RecsVals = append(m.RecsVals, val)
 }
@@ -79,6 +79,12 @@ func (m *MockMeter) RecWL(key string, val float64, labels map[string]string) {
 // Str sets a label value for all metrics that have defined it
 func (m *MockMeter) Str(key string, val string) {
 	m.Strs[key] = val
+}
+
+func (m *MockMeter) SetAttrs(attrMap map[string]interface{}) {
+	for k, v := range attrMap {
+		m.Strs[k] = strAttr(v)
+	}
 }
 
 // NewMockMeterBuilder returns a function to create Mock meters.

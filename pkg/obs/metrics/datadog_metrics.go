@@ -83,7 +83,7 @@ func (m *DataDogMeter) Inc(key string) {
 }
 
 // IncWL increases and integer value adding labels to this records
-func (m *DataDogMeter) IncWL(key string, labels map[string]string) {
+func (m *DataDogMeter) IncWL(key string, labels map[string]interface{}) {
 	var err error
 	var d *MetricDefinition
 	d, _, err = m.metrics.catalog.Def(key,
@@ -106,7 +106,7 @@ func (m *DataDogMeter) Dec(key string) {
 }
 
 // DecWL decreases an integer value adding labels to this record
-func (m *DataDogMeter) DecWL(key string, labels map[string]string) {
+func (m *DataDogMeter) DecWL(key string, labels map[string]interface{}) {
 	var err error
 	d, _, err := m.metrics.catalog.Def(key, MetricTypeUpDownCounter)
 	if err == nil {
@@ -127,7 +127,7 @@ func (m *DataDogMeter) Add(key string, val int64) {
 }
 
 // AddWL with labels that apply only to this record
-func (m *DataDogMeter) AddWL(key string, val int64, labels map[string]string) {
+func (m *DataDogMeter) AddWL(key string, val int64, labels map[string]interface{}) {
 	d, _, err := m.metrics.catalog.Def(key, MetricTypeMonotonicCounter,
 		MetricTypeUpDownCounter)
 	if err == nil {
@@ -148,7 +148,7 @@ func (m *DataDogMeter) Rec(key string, val float64) {
 }
 
 // RecWL with labels that apply only to this record
-func (m *DataDogMeter) RecWL(key string, val float64, labels map[string]string) {
+func (m *DataDogMeter) RecWL(key string, val float64, labels map[string]interface{}) {
 	d, _, err := m.metrics.catalog.Def(key, MetricTypeHistogram, MetricTypeDistribution)
 	if err == nil {
 		if d.MetricType == MetricTypeHistogram {
@@ -175,9 +175,25 @@ func (m *DataDogMeter) Str(key string, val string) {
 	m.dataMux.Unlock()
 }
 
+func (m *DataDogMeter) SetAttrs(attrMap map[string]interface{}) {
+	m.dataMux.Lock()
+	defer m.dataMux.Unlock()
+	for k, v := range attrMap {
+		s := ""
+		switch vt := v.(type) {
+		case string:
+			s = vt
+			// TODO: add int and float to string conversions
+		default:
+			continue
+		}
+		m.data[k] = s
+	}
+}
+
 // fillLabels only fills the tags for the labels defined
 func (m *DataDogMeter) fillLabels(attrDefs attrs.AttrDefinitionList,
-	labelVals map[string]string) []string {
+	labelVals map[string]interface{}) []string {
 
 	var tags []string
 	extraLen := len(labelVals)
@@ -186,12 +202,15 @@ func (m *DataDogMeter) fillLabels(attrDefs attrs.AttrDefinitionList,
 	existingLen := len(m.data)
 	tags = make([]string, 0, existingLen+extraLen)
 	for _, d := range attrDefs {
-		v, ok := labelVals[d.Name]
+		s := ""
+		vi, ok := labelVals[d.Name]
 		if !ok {
-			v, ok = m.data[d.Name]
+			s, ok = m.data[d.Name]
+		} else {
+			s = strAttr(vi)
 		}
 		if ok {
-			tags = append(tags, d.Name+":"+v)
+			tags = append(tags, d.Name+":"+s)
 		}
 	}
 	m.dataMux.RUnlock()

@@ -171,7 +171,7 @@ func (pm *PrometheusMeter) Inc(key string) {
 }
 
 // IncWL increases and integer value adding labels to this records
-func (pm *PrometheusMeter) IncWL(key string, labels map[string]string) {
+func (pm *PrometheusMeter) IncWL(key string, labels map[string]interface{}) {
 	pm.AddWL(key, 1.0, labels)
 }
 
@@ -181,7 +181,7 @@ func (pm *PrometheusMeter) Dec(key string) {
 }
 
 // DecWL decreases an integer value adding labels to this record
-func (pm *PrometheusMeter) DecWL(key string, labels map[string]string) {
+func (pm *PrometheusMeter) DecWL(key string, labels map[string]interface{}) {
 	pm.AddWL(key, -1.0, labels)
 }
 
@@ -191,7 +191,7 @@ func (pm *PrometheusMeter) Add(key string, val int64) {
 }
 
 // AddWL with labels that apply only to this record
-func (pm *PrometheusMeter) AddWL(key string, val int64, labels map[string]string) {
+func (pm *PrometheusMeter) AddWL(key string, val int64, labels map[string]interface{}) {
 	mdef, _, err := pm.metrics.catalog.Def(key, MetricTypeMonotonicCounter,
 		MetricTypeUpDownCounter)
 	if err != nil {
@@ -253,7 +253,7 @@ func (pm *PrometheusMeter) Rec(key string, val float64) {
 }
 
 // RecWL with labels that apply only to this record
-func (pm *PrometheusMeter) RecWL(key string, val float64, labels map[string]string) {
+func (pm *PrometheusMeter) RecWL(key string, val float64, labels map[string]interface{}) {
 	mdef, _, err := pm.metrics.catalog.Def(key, MetricTypeHistogram)
 	if err != nil {
 		pm.log.Debug("metric def not found", map[string]interface{}{
@@ -289,7 +289,15 @@ func (pm *PrometheusMeter) Str(key string, val string) {
 	pm.dataMux.Unlock()
 }
 
-func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]string) prometheus.Labels {
+func (pm *PrometheusMeter) SetAttrs(attrsMap map[string]interface{}) {
+	pm.dataMux.Lock()
+	for k, v := range attrsMap {
+		pm.data[k] = strAttr(v)
+	}
+	pm.dataMux.Unlock()
+}
+
+func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]interface{}) prometheus.Labels {
 	promLabels := make(prometheus.Labels, len(labels))
 	pm.dataMux.RLock()
 	for _, l := range labels {
@@ -301,7 +309,7 @@ func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]stri
 	}
 	for _, l := range labels {
 		if v, ok := labelVals[l]; ok {
-			promLabels[l] = v
+			promLabels[l] = strAttr(v)
 		}
 	}
 	return promLabels

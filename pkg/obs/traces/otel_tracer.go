@@ -158,6 +158,10 @@ func (t *OTELTracer) FromHTTPRequest(r *http.Request) Tracer {
 
 func (t *OTELTracer) mergeAttrs(other map[string]interface{}) []attribute.KeyValue {
 	merged := make([]attribute.KeyValue, 0, len(t.attrList)+len(other))
+	if len(other) == 0 {
+		merged = append(merged, t.attrList...)
+		return merged
+	}
 	for _, kv := range t.attrList {
 		k := string(kv.Key)
 		if _, ok := other[k]; !ok {
