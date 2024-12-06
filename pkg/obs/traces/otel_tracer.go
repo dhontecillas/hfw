@@ -3,7 +3,6 @@ package traces
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -148,12 +147,6 @@ func NewOTELTracerBuilder(ctx context.Context, l logs.Logger,
 			ctx:            context.Background(),
 		}
 	}
-}
-
-// FromHTTPRequest checks if there is a parent trace
-// to derive from in the in
-func (t *OTELTracer) FromHTTPRequest(r *http.Request) Tracer {
-	return t
 }
 
 func (t *OTELTracer) mergeAttrs(other map[string]interface{}) []attribute.KeyValue {

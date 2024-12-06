@@ -18,6 +18,16 @@ func NewMultiMeter(wrapped ...Meter) *MultiMeter {
 	return m
 }
 
+func (m *MultiMeter) Clone() Meter {
+	mm := &MultiMeter{
+		wrapped: make([]Meter, 0, len(m.wrapped)),
+	}
+	for _, wrp := range m.wrapped {
+		mm.wrapped = append(mm.wrapped, wrp.Clone())
+	}
+	return mm
+}
+
 var _ Meter = (*MultiMeter)(nil)
 
 // Inc increases an integer value

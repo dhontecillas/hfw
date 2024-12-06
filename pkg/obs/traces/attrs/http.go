@@ -13,6 +13,7 @@ const (
 	AttrHTTPStatusGroup string = "http.response.status_group" // 2xx , 3xx, 4xx or 5xx , to reduce metric cardinality
 	AttrHTTPQuery       string = "http.query"
 	AttrHTTPRemoteIP    string = "http.remote_ip"
+	AttrHTTPDuration    string = string(semconv.HTTPServerRequestDurationName)
 
 	AttrHTTPRequestBodySize = string(semconv.HTTPRequestBodySizeKey) // http.request.size (including headers)
 	AttrHTTPRequestSize     = string(semconv.HTTPRequestSizeKey)     // http.request.size (including headers)

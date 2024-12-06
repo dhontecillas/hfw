@@ -77,6 +77,18 @@ func newDataDogMeter(l logs.Logger, metrics *datadogMetrics) *DataDogMeter {
 	}
 }
 
+func (m *DataDogMeter) Clone() Meter {
+	data := make(map[string]string, len(m.data))
+	for k, v := range m.data {
+		data[k] = v
+	}
+	return &DataDogMeter{
+		log:     m.log,
+		metrics: m.metrics,
+		data:    data,
+	}
+}
+
 // Inc increases an integer value
 func (m *DataDogMeter) Inc(key string) {
 	m.IncWL(key, nil)

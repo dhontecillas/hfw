@@ -32,6 +32,28 @@ func NewMockMeter() *MockMeter {
 
 var _ Meter = (*MockMeter)(nil)
 
+func (m *MockMeter) Clone() Meter {
+	mm := &MockMeter{
+		Incs:     make([]string, len(m.Incs)),
+		Decs:     make([]string, len(m.Decs)),
+		Recs:     make([]string, len(m.Recs)),
+		RecsVals: make([]float64, len(m.RecsVals)),
+		Adds:     make([]string, len(m.Adds)),
+		AddsVals: make([]int64, len(m.AddsVals)),
+		Strs:     make(map[string]string, len(m.Strs)),
+	}
+	copy(mm.Incs, m.Incs)
+	copy(mm.Decs, m.Decs)
+	copy(mm.Recs, m.Recs)
+	copy(mm.RecsVals, m.RecsVals)
+	copy(mm.Adds, m.Adds)
+	copy(mm.AddsVals, m.AddsVals)
+	for k, v := range m.Strs {
+		mm.Strs[k] = v
+	}
+	return mm
+}
+
 // Inc increases an integer value
 func (m *MockMeter) Inc(key string) {
 	m.Incs = append(m.Incs, key)

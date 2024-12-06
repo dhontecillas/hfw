@@ -14,27 +14,23 @@ type Insighter struct {
 	L logs.Logger
 	M metrics.Meter
 	T traces.Tracer
-
-	metricDefs metrics.MetricDefinitionList
 }
 
 // InsighterBuilderFn defines the function signature to create a new Insighter instance
 type InsighterBuilderFn func() *Insighter
 
 // NewInsighterBuilder constructs a new insighter
-func NewInsighterBuilder(metricDefs metrics.MetricDefinitionList, lb logs.LoggerBuilderFn,
+func NewInsighterBuilder(lb logs.LoggerBuilderFn,
 	mb metrics.MeterBuilderFn, tb traces.TracerBuilderFn) InsighterBuilderFn {
 
 	return func() *Insighter {
 		l := lb()
-		mdefs, _ := metricDefs.CleanUp()
-		m := mb(l)
+		m := mb(l) // we might end up with to many logs if it has errors ?
 		t := tb(l)
 		return &Insighter{
-			L:          l,
-			M:          m,
-			T:          t,
-			metricDefs: mdefs,
+			L: l,
+			M: m,
+			T: t,
 		}
 	}
 }
@@ -45,8 +41,8 @@ func NewInsighterBuilder(metricDefs metrics.MetricDefinitionList, lb logs.Logger
 func (i *Insighter) Clone() *Insighter {
 	return &Insighter{
 		L: i.L.Clone(),
-		M: i.M,
-		T: i.T,
+		M: i.M.Clone(),
+		T: i.T, // tracer should not be cloned, a new span might be created
 	}
 }
 

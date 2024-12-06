@@ -49,6 +49,10 @@ type Meter interface {
 	AddWL(key string, val int64, attrMap map[string]interface{})
 	// RecWL with attrMap that apply only to this record
 	RecWL(key string, val float64, attrMap map[string]interface{})
+
+	// Clone returns a meter that has the same attributes set, but
+	// that is safe to be used concurrently
+	Clone() Meter
 }
 
 // MeterBuilderFn defines the type of a builder function for Meters

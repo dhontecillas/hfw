@@ -68,14 +68,15 @@ func NewPrometheusMeterBuilder(log logs.Logger, conf *PrometheusConfig,
 
 	for idx, def := range promMetrics.catalog {
 		t := def.MetricType
+		key := cleanupMetricName(def.Name)
 		if t == MetricTypeDistribution {
 			// if is not standard, nor "extension" metric skip
 			log.Warn("skipping invalid metric type", map[string]interface{}{
-				"key":  def.Name,
+				"key":  key,
 				"idx":  idx,
 				"type": def.MetricType,
 			})
-			promMetrics.byTypeIdx[def.Name] = -1
+			promMetrics.byTypeIdx[key] = -1
 			continue
 		}
 
@@ -83,57 +84,63 @@ func NewPrometheusMeterBuilder(log logs.Logger, conf *PrometheusConfig,
 			switch def.MetricType {
 			case MetricTypeMonotonicCounter:
 				c := prometheus.NewCounter(prometheus.CounterOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
 				})
 				promMetrics.Counters = append(promMetrics.Counters, c)
 				prometheus.MustRegister(c)
-				promMetrics.byTypeIdx[def.Name] = len(promMetrics.Counters) - 1
+				promMetrics.byTypeIdx[key] = len(promMetrics.Counters) - 1
 			case MetricTypeUpDownCounter:
 				g := prometheus.NewGauge(prometheus.GaugeOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
 				})
 				promMetrics.Gauges = append(promMetrics.Gauges, g)
 				prometheus.MustRegister(g)
-				promMetrics.byTypeIdx[def.Name] = len(promMetrics.Gauges) - 1
+				promMetrics.byTypeIdx[key] = len(promMetrics.Gauges) - 1
 			case MetricTypeHistogram:
 				h := prometheus.NewHistogram(prometheus.HistogramOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
 					Buckets: []float64{100, 150, 200, 250, 300, 350,
 						400, 450, 500, 600, 700, 1000},
 				})
 				promMetrics.Histograms = append(promMetrics.Histograms, h)
 				prometheus.MustRegister(h)
-				promMetrics.byTypeIdx[def.Name] = len(promMetrics.Histograms) - 1
+				promMetrics.byTypeIdx[key] = len(promMetrics.Histograms) - 1
 			}
 		} else {
-			if len(def.Attributes) > 12 {
+			attrDirtyNames := def.Attributes.Names()
+			attrNames := make([]string, 0, len(attrDirtyNames))
+			for _, nm := range attrDirtyNames {
+				attrNames = append(attrNames, cleanupMetricName(nm))
+			}
+
+			if len(attrNames) > 12 {
 				log.Warn("high cardinality metric", map[string]interface{}{
-					"key":       def.Name,
-					"attrs_len": len(def.Attributes),
+					"key":       key,
+					"attrs_len": len(attrNames),
 				})
 			}
 
 			switch def.MetricType {
 			case MetricTypeMonotonicCounter:
 				c := prometheus.NewCounterVec(prometheus.CounterOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
-				}, def.Attributes.Names())
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
+				}, attrNames)
 				promMetrics.LabeledCounters = append(promMetrics.LabeledCounters, c)
 				prometheus.MustRegister(c)
-				promMetrics.byTypeIdx[def.Name] = len(promMetrics.LabeledCounters) - 1
+				promMetrics.byTypeIdx[key] = len(promMetrics.LabeledCounters) - 1
 			case MetricTypeUpDownCounter:
 				g := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
-				}, def.Attributes.Names())
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
+				}, attrNames)
 				promMetrics.LabeledGauges = append(promMetrics.LabeledGauges, g)
 				prometheus.MustRegister(g)
 				promMetrics.byTypeIdx[def.Name] = len(promMetrics.LabeledGauges) - 1
 			case MetricTypeHistogram:
 				h := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-					Name: cleanupMetricName(conf.MetricsPrefix + def.Name),
+					Name: cleanupMetricName(conf.MetricsPrefix + key),
 					Buckets: []float64{20, 50, 100, 150, 200, 300,
 						400, 500, 700, 1000},
-				}, def.Attributes.Names())
+				}, attrNames)
 				promMetrics.LabeledHistograms = append(promMetrics.LabeledHistograms, h)
 				prometheus.MustRegister(h)
 				promMetrics.byTypeIdx[def.Name] = len(promMetrics.LabeledHistograms) - 1
@@ -162,6 +169,18 @@ func NewPrometheusMeter(log logs.Logger, promMetrics *prometheusMetrics) *Promet
 		log:     log,
 		metrics: promMetrics,
 		data:    map[string]string{},
+	}
+}
+
+func (pm *PrometheusMeter) Clone() Meter {
+	data := make(map[string]string, len(pm.data))
+	for k, v := range pm.data {
+		data[k] = v
+	}
+	return &PrometheusMeter{
+		log:     pm.log,
+		metrics: pm.metrics,
+		data:    data,
 	}
 }
 
@@ -285,14 +304,15 @@ func (pm *PrometheusMeter) RecWL(key string, val float64, labels map[string]inte
 // Str sets a label value for all metrics that have defined it
 func (pm *PrometheusMeter) Str(key string, val string) {
 	pm.dataMux.Lock()
-	pm.data[key] = val
+	pm.data[cleanupMetricName(key)] = val
 	pm.dataMux.Unlock()
 }
 
 func (pm *PrometheusMeter) SetAttrs(attrsMap map[string]interface{}) {
 	pm.dataMux.Lock()
 	for k, v := range attrsMap {
-		pm.data[k] = strAttr(v)
+		kk := cleanupMetricName(k)
+		pm.data[kk] = strAttr(v)
 	}
 	pm.dataMux.Unlock()
 }
@@ -301,7 +321,12 @@ func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]inte
 	promLabels := make(prometheus.Labels, len(labels))
 	pm.dataMux.RLock()
 	for _, l := range labels {
-		promLabels[l] = pm.data[l]
+		ll := cleanupMetricName(l)
+		if v, ok := pm.data[ll]; ok {
+			promLabels[ll] = v
+		} else {
+			promLabels[ll] = ""
+		}
 	}
 	pm.dataMux.RUnlock()
 	if labelVals == nil {
@@ -309,7 +334,8 @@ func (pm *PrometheusMeter) fillLabels(labels []string, labelVals map[string]inte
 	}
 	for _, l := range labels {
 		if v, ok := labelVals[l]; ok {
-			promLabels[l] = strAttr(v)
+			ll := cleanupMetricName(l)
+			promLabels[ll] = strAttr(v)
 		}
 	}
 	return promLabels

@@ -2,7 +2,6 @@ package traces
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 )
@@ -16,12 +15,6 @@ func NewNopTracerBuilder() TracerBuilderFn {
 	return func(log logs.Logger) Tracer {
 		return &NopTracer{}
 	}
-}
-
-// FromHTTPRequest checks if there is a parent trace
-// to derive from in the in
-func (t *NopTracer) FromHTTPRequest(r *http.Request) Tracer {
-	return t
 }
 
 // Start begins a tracer span.

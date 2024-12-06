@@ -15,6 +15,10 @@ func NewNopMeter() *NopMeter {
 
 var _ Meter = (*NopMeter)(nil)
 
+func (m *NopMeter) Clone() Meter {
+	return m
+}
+
 // Inc increases an integer value
 func (m *NopMeter) Inc(key string) {
 }

@@ -261,6 +261,18 @@ func (t *OTELMeter) mergeAttrs(other map[string]interface{}, allowedAttrs []stri
 	return merged
 }
 
+func (t *OTELMeter) Clone() Meter {
+	attrMap := make(map[string]string, len(t.attrMap))
+	for k, v := range t.attrMap {
+		attrMap[k] = v
+	}
+	return &OTELMeter{
+		shared:  t.shared,
+		attrMap: attrMap,
+		ctx:     t.ctx,
+	}
+}
+
 // Str adds a tag to the metric of type string.
 func (t *OTELMeter) Str(key, val string) {
 	t.attrMap[key] = val

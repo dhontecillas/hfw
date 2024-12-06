@@ -20,11 +20,9 @@ import (
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/obs"
-	"github.com/dhontecillas/hfw/pkg/obs/attrs"
 	"github.com/dhontecillas/hfw/pkg/obs/httpobs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
-	metattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
 )
@@ -68,7 +66,14 @@ func main() {
 	}
 
 	metricDefs := metricsdefaults.HTTPDefaultMetricDefinitions()
-	metricDefs, _ = metricDefs.CleanUp()
+	var errs []error
+	metricDefs, errs = metricDefs.CleanUp()
+	if len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Printf("Error reading metric definitions: %s", e.Error())
+		}
+		return
+	}
 
 	// we can have several log builders and wrap them to have logs sent to
 	// different places
@@ -78,11 +83,16 @@ func main() {
 	// example of sending metrics to multiple meters
 	mPromBuilder := buildPrometheusMeterBuilder(startupLogger, metricDefs)
 
-	mNopBuilder, err := metrics.NewNopMeterBuilder()
-	if err != nil {
-		return
-	}
-	meterBuilder, err := metrics.NewMultiMeterBuilder(startupLogger, mPromBuilder, mNopBuilder)
+	mOTELMetricsBuilder := metrics.NewOTELMeterBuilder(context.Background(),
+		startupLogger, &metrics.OTELMeterConfig{
+			Host:            "localhost",
+			Port:            54317,
+			UseHTTP:         false,
+			ReportingPeriod: "1s",
+		}, metricDefs, "obs_example", "v0.0.1")
+
+	meterBuilder, err := metrics.NewMultiMeterBuilder(startupLogger, mPromBuilder,
+		mOTELMetricsBuilder)
 	if err != nil {
 		return
 	}
@@ -96,22 +106,25 @@ func main() {
 	}, "obs_example", "v0.0.1")
 
 	// get the builder function for the Insights instance
-	insBuilder := obs.NewInsighterBuilder(metricDefs, logBuilder,
+	insBuilder := obs.NewInsighterBuilder(logBuilder,
 		meterBuilder, tracerBuilder)
 
 	ins := insBuilder()
 
+	fakeHandler := newFakeHandler(70*time.Millisecond, 500*time.Millisecond)
+	obsWrap := httpobs.NewObsHTTPHandler(insBuilder, fakeHandler)
+
 	// create a test server with delays between 70 and 500 ms
-	s := httptest.NewServer(newFakeHandler(ins, 70, 500))
+	s := httptest.NewServer(obsWrap)
 	defer s.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	// launch 20 clients, making requests with a delay of 1 second
 	// per request and a jitter of about 1 second
-	launchClients(ctx, ins, s.URL, 20, time.Second, time.Second)
+	launchClients(ctx, ins, s.URL, 1, time.Second, time.Second)
 
 	fmt.Printf("waiting for 10 secs ...")
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 400)
 	cancel()
 	fmt.Printf("shutting down ... ")
 	time.Sleep(time.Second * 2)
@@ -138,7 +151,7 @@ func buildPrometheusMeterBuilder(l logs.Logger,
 
 	pConf := metrics.PrometheusConfig{
 		ServerPort: ":9876",
-		ServerPath: "/prom_metrics",
+		ServerPath: "/metrics",
 	}
 	pmBuilder, err := metrics.NewPrometheusMeterBuilder(l, &pConf, mdefs)
 	if err != nil {
@@ -155,27 +168,14 @@ func buildPrometheusMeterBuilder(l logs.Logger,
 	return pmBuilder
 }
 
-// the matched route cannot be extracted from the request, but from
-// the router that is handling it
-func SetReqAttrs(r *http.Request, route string, at attrs.Attributable) {
-	if f, e := httpobs.ExtractTelemetryFields(r); e != nil {
-		f[metattrs.AttrHTTPRoute] = route
-		at.SetAttrs(f)
-	}
-}
-
-func newFakeHandler(ins *obs.Insighter, minLatency time.Duration, maxLatency time.Duration) http.HandlerFunc {
+func newFakeHandler(minLatency time.Duration, maxLatency time.Duration) http.HandlerFunc {
 
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	latencyExtra := maxLatency - minLatency
 	return func(w http.ResponseWriter, r *http.Request) {
-		span := ins.T.Start(r.Context(), "request", nil)
-		defer span.End()
 		lat := minLatency + time.Duration(float64(latencyExtra)*rnd.Float64())
 		// TODO: add background processes to see traces
 		// bgProcs := rnd.Intn(3)
-
 		time.Sleep(lat)
 		h := w.Header()
 		h.Add("X-Fake", "fake value")

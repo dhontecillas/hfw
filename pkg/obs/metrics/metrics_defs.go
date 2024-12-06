@@ -55,7 +55,7 @@ func (d *MetricDefinition) CleanUp() (*MetricDefinition, []error) {
 		return nil, []error{e}
 	}
 
-	if validMetricTypes[d.MetricType] {
+	if !validMetricTypes[d.MetricType] {
 		e := fmt.Errorf("unknown metric type: %w", ErrMetricWrongType)
 		return nil, []error{e}
 	}
