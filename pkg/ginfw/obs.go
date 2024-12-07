@@ -1,49 +1,15 @@
 package ginfw
 
 import (
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/ids"
 	"github.com/gin-gonic/gin"
 
-	"github.com/dhontecillas/hfw/pkg/obs/logs"
-	"github.com/dhontecillas/hfw/pkg/obs/metrics"
+	"github.com/dhontecillas/hfw/pkg/obs/httpobs"
+	metricsattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/traces/attrs"
 )
-
-func headersToString(headers http.Header) string {
-	var hb strings.Builder
-	// TODO: we want the headers sorted by name
-	for k, v := range headers {
-		hb.WriteString(k)
-		hb.WriteString(":[")
-		for idx, vv := range v {
-			if idx > 0 {
-				hb.WriteString(",")
-			}
-			hb.WriteString(vv)
-		}
-		hb.WriteString("] ")
-	}
-	return hb.String()
-}
-
-func statusGroup(status int) string {
-	if status < 200 {
-		return "1xx"
-	}
-	if status < 300 {
-		return "2xx"
-	}
-	if status < 400 {
-		return "3xx"
-	}
-	if status < 500 {
-		return "4xx"
-	}
-	return "5xx"
-}
 
 // ObsMiddleware creates a middlewware that attaches the
 // ExternalServices instance and insighters instance with
@@ -57,40 +23,35 @@ func ObsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		deps := ExtServices(c)
 		ins := deps.Ins
+		req := c.Request
 
-		// set some shared tags for logs, metrics and traces
-		ins.Str(metrics.AttrMethod, c.Request.Method)
-		ins.Str(metrics.AttrRoute, c.FullPath())
-
-		ins.L.Str(logs.AttrPath, c.Request.URL.Path)
-		ins.T.Str(logs.AttrPath, c.Request.URL.Path)
-		ins.L.Str(logs.AttrQuery, c.Request.URL.RawQuery)
-		ins.T.Str(logs.AttrQuery, c.Request.URL.Path)
-
-		strHeaders := headersToString(c.Request.Header)
-		ins.L.Str(logs.AttrReqHeaders, strHeaders)
-		ins.T.Str(logs.AttrReqHeaders, strHeaders)
-
+		reqAttrs, _ := httpobs.HTTPRequestAttrs(req, c.FullPath())
+		ins.SetAttrs(reqAttrs)
+		ins.Str(tracesattrs.AttrHTTPRemoteIP, c.ClientIP())
 		reqID := "UNKNOWN"
 		if id, err := idGen.New(); err == nil {
 			reqID = id.ToUUID()
 		}
-		ins.Str(logs.AttrReqID, reqID)
+		ins.Str(metricsattrs.AttrHTTPRequestID, reqID)
+
+		span := ins.T.Start(req.Context(), "http_request", reqAttrs)
+		defer span.End()
+
+		// set some shared tags for logs, metrics and traces
 
 		// set shared tags for all logs
-		ins.L.Str(logs.AttrRemoteIP, c.ClientIP())
 
 		startTime := time.Now()
-		ins.L.Str(logs.AttrReqDateTime, startTime.Format(time.RFC3339))
+		ins.L.Str("time", startTime.Format(time.RFC3339))
 
 		c.Next()
 
 		// tag the metrics with the status code
 		status := c.Writer.Status()
-		statusG := statusGroup(status)
+		statusG := httpobs.HTTPStatusGroup(status)
 
-		ins.I64(metrics.AttrStatus, int64(status))
-		ins.Str(metrics.AttrStatusGroup, statusG)
+		ins.I64(metricsattrs.AttrHTTPStatus, int64(status))
+		ins.Str(metricsattrs.AttrHTTPStatusGroup, statusG)
 
 		duration := time.Since(startTime).Milliseconds()
 		respSize := c.Writer.Size()
@@ -98,18 +59,17 @@ func ObsMiddleware() gin.HandlerFunc {
 		// TODO: we need to record the size of the incoming payload
 
 		// meter the duration of the endpoint
-		ins.M.Rec(metrics.MetReqDuration, float64(duration))
-		ins.M.Rec(metrics.MetHTTPResponseBodySize, float64(respSize))
+		ins.M.Rec(metricsattrs.MetHTTPServerRequestDuration, float64(duration))
+		ins.M.Rec(metricsattrs.MetHTTPServerResponseBodySize, float64(respSize))
 
-		ins.L.I64(logs.AttrReqDuration, duration)
-		ins.L.I64(logs.AttrRespSize, int64(respSize))
-
-		m := ins.L.InfoMsg("Request")
+		ins.T.I64(tracesattrs.AttrHTTPDuration, duration)
+		ins.T.I64(tracesattrs.AttrHTTPResponseBodySize, int64(respSize))
+		ins.L.I64(tracesattrs.AttrHTTPDuration, duration)
+		ins.L.I64(tracesattrs.AttrHTTPResponseBodySize, int64(respSize))
 
 		errs := c.Errors.ByType(gin.ErrorTypePrivate).String()
-		if len(errs) > 0 {
-			m.Str(logs.AttrErrors, errs)
-		}
-		m.Send()
+		ins.L.Info("request", map[string]interface{}{
+			"errors": errs,
+		})
 	}
 }

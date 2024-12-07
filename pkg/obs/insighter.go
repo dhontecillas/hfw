@@ -3,6 +3,7 @@ package obs
 import (
 	"fmt"
 
+	"github.com/dhontecillas/hfw/pkg/obs/attrs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
@@ -47,33 +48,33 @@ func (i *Insighter) Clone() *Insighter {
 }
 
 // Str sets a string label value for the underlying systems.
-func (i *Insighter) Str(key, val string) *Insighter {
+func (i *Insighter) Str(key, val string) {
 	i.L.Str(key, val)
 	i.M.Str(key, val)
 	i.T.Str(key, val)
-	return i
 }
 
 // I64 sets an int label value for the underlying systems.
-func (i *Insighter) I64(key string, val int64) *Insighter {
+func (i *Insighter) I64(key string, val int64) {
 	i.L.I64(key, val)
 	i.M.Str(key, fmt.Sprintf("%d", val))
 	i.T.I64(key, val)
-	return i
 }
 
 // F64 sets a float label value for the underlying systems.
-func (i *Insighter) F64(key string, val float64) *Insighter {
+func (i *Insighter) F64(key string, val float64) {
 	i.L.F64(key, val)
 	i.M.Str(key, fmt.Sprintf("%f", val))
 	i.T.F64(key, val)
-	return i
 }
 
 // Bool sets a boolean label value for the underlying systems.
-func (i *Insighter) Bool(key string, val bool) *Insighter {
+func (i *Insighter) Bool(key string, val bool) {
 	i.L.Bool(key, val)
 	i.M.Str(key, fmt.Sprintf("%t", val))
 	i.T.Bool(key, val)
-	return i
+}
+
+func (i *Insighter) SetAttrs(attrMap map[string]interface{}) {
+	attrs.ApplyAttrs(i, attrMap)
 }

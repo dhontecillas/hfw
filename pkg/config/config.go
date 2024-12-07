@@ -59,7 +59,7 @@ func InitConfig(confPrefix string) error {
 // on configuration.
 func BuildExternalServices(confPrefix string,
 	insBuilderFn obs.InsighterBuilderFn,
-	insFlush func()) *extdeps.ExternalServices {
+	insFlush func()) *extdeps.ExternalServicesBuilder {
 
 	ins := insBuilderFn()
 
@@ -89,7 +89,7 @@ func BuildExternalServices(confPrefix string,
 	if err != nil {
 		panic("cannot create notifications")
 	}
-	return extdeps.NewExternalServices(
+	return extdeps.NewExternalServicesBuilder(
 		insBuilderFn, insFlush,
 		mailer,
 		sql,

@@ -17,9 +17,11 @@ const (
 
 	AttrHTTPRequestBodySize = string(semconv.HTTPRequestBodySizeKey) // http.request.size (including headers)
 	AttrHTTPRequestSize     = string(semconv.HTTPRequestSizeKey)     // http.request.size (including headers)
+	AttrHTTPRequestHeaders  = "http.request.headers"
 
 	AttrHTTPResponseBodySize = string(semconv.HTTPResponseBodySizeKey) // http.request.size (including headers)
 	AttrHTTPResponseSize     = string(semconv.HTTPResponseSizeKey)
+	AttrHTTPResponseHeaders  = "http.response.headers"
 
 	AttrHTTPErrors string = "http.errors"
 )

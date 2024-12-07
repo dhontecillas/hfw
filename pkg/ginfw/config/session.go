@@ -36,7 +36,7 @@ func ReadSessionConf(ins *obs.Insighter, confPrefix string,
 		msg := fmt.Sprintf("cannot read required config value: %s",
 			confKeySessionSecretKeyPair)
 		err := fmt.Errorf("%s", msg)
-		ins.L.ErrMsg(err, msg)
+		ins.L.Err(err, msg, nil)
 		return nil, err
 	}
 	CSRFSecret := viper.GetString(confPrefix + confKeySessionCSRFSecret)
@@ -44,7 +44,7 @@ func ReadSessionConf(ins *obs.Insighter, confPrefix string,
 		msg := fmt.Sprintf("cannot read required config value: %s",
 			confKeySessionCSRFSecret)
 		err := fmt.Errorf("%s", msg)
-		ins.L.ErrMsg(err, msg)
+		ins.L.Err(err, msg, nil)
 		return nil, err
 	}
 

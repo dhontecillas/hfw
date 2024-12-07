@@ -14,18 +14,14 @@ import (
 // that does not send notifications, and an insighter
 // that does not log, send metrics or traces.
 // Useful for testing.
-func GetNopExternalServices() ExternalServices {
+func GetNopExternalServices() *ExternalServicesBuilder {
 	logBuilder, _, _ := logs.NewLogrusBuilder(nil)
 	nopMeterBuilder, _ := metrics.NewNopMeterBuilder()
 	nopTracerBuilder := traces.NewNopTracerBuilder()
 
-	insBuilder := obs.NewInsighterBuilder(metrics.MetricDefinitionList{},
-		logBuilder, nopMeterBuilder, nopTracerBuilder)
-	ins := insBuilder()
+	insBuilder := obs.NewInsighterBuilder(logBuilder, nopMeterBuilder, nopTracerBuilder)
 
-	return ExternalServices{
-		MailSender: mailer.NewNopMailer(),
-		Composer:   notifications.NewNopComposer(),
-		ins:        ins,
-	}
+	// TODO: we need a way to porovide a No-Op SQLDB interface, that Master returns nil !
+	return NewExternalServicesBuilder(insBuilder, func() {}, mailer.NewNopMailer(),
+		nil, notifications.NewNopComposer())
 }

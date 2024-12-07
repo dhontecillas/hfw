@@ -118,7 +118,9 @@ func (a *AppUpdater) procRegularFile(event *watcher.Event) {
 
 	for _, ext := range a.conf.ResFileExts {
 		if strings.HasSuffix(nm, ext) {
-			a.ins.L.InfoMsg("updating resource").Str("resource", nm).Send()
+			a.ins.L.Info("updating resource", map[string]interface{}{
+				"resource": nm,
+			})
 			a.UpdateResource(event)
 			return
 		}

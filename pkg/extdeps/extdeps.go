@@ -11,7 +11,7 @@ import (
 // for building a ExternalServices.
 // Usually used to create new instances for each served
 // request
-type ExternalServicesBuilderFn func() *ExternalServices
+type ExternalServicesBuilderFn func() *ExternalServicesBuilder
 
 // ExtServices holds thread-safe instances to make use of
 // external services.

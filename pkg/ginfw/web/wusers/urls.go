@@ -128,7 +128,9 @@ func Register(c *gin.Context, actionPaths *ActionPaths) {
 	rp := RegisterPayload{}
 	err := c.ShouldBindWith(&rp, binding.Form)
 	if err != nil {
-		ed.Ins.L.Err(err, fmt.Sprintf("failed to bind: %s", err.Error()))
+		ed.Ins.L.Err(err, "failed to bind", map[string]interface{}{
+			"error": err.Error(),
+		})
 		c.HTML(http.StatusOK, TemplActivationSent,
 			gin.H{
 				"email": "Error",
@@ -141,15 +143,17 @@ func Register(c *gin.Context, actionPaths *ActionPaths) {
 	err = regUC.Register(rp.Email, rp.Password)
 	if err != nil {
 		if errors.Is(err, users.ErrUserExists) {
-			ed.Ins.L.WarnMsg("trying to register user").Str(
-				"email", rp.Email).Str(
-				"error", err.Error()).Send()
+			ed.Ins.L.Warn("trying to register user", map[string]interface{}{
+				"email": rp.Email,
+				"error": err.Error(),
+			})
 			// we do not send error to avoid leaking existing users email, but
 			// we log the attempt
 			err = nil
 		} else {
-			ed.Ins.L.ErrMsg(err, "trying to register user").Str(
-				"email", rp.Email).Send()
+			ed.Ins.L.Err(err, "trying to register user", map[string]interface{}{
+				"email": rp.Email,
+			})
 		}
 	}
 	c.HTML(http.StatusOK, TemplActivationSent,
@@ -247,8 +251,9 @@ func ResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 	if err != nil {
 		deps := ginfw.ExtServices(c)
 		deps.Ins.L.
-			WarnMsg("cannot bind the payload (redirecting to password reset form):").
-			Str("error", err.Error()).Send()
+			Warn("cannot bind the payload (redirecting to password reset form)", map[string]interface{}{
+				"error": err.Error(),
+			})
 		c.Redirect(http.StatusFound, actionPaths.BasePath+"/"+PathRequestPasswordReset)
 		c.Abort()
 		return
@@ -258,10 +263,10 @@ func ResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 		// TODO: Instead of TemplResetPasswordTokenSent, create an error
 		// template to show what happened.
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.
-			WarnMsg("cannot ResetPasswordWithToken:").
-			Str("token", p.Token).
-			Str("error", err.Error())
+		deps.Ins.L.Warn("cannot ResetPasswordWithToken:", map[string]interface{}{
+			"token": p.Token,
+			"error": err.Error(),
+		})
 		c.HTML(http.StatusInternalServerError, TemplResetPasswordTokenSent, gin.H{})
 	}
 	c.HTML(http.StatusOK, TemplResetPasswordSuccess, gin.H{})
@@ -284,12 +289,12 @@ func Login(c *gin.Context, actionPaths *ActionPaths) {
 	err := c.ShouldBindWith(&lp, binding.Form)
 	ed := ginfw.ExtServices(c)
 	if err != nil {
-		ed.Ins.L.Err(err, "missing fields")
+		ed.Ins.L.Err(err, "missing fields", nil)
 	}
 	regUC := buildController(c, actionPaths)
 	userID, err := regUC.Login(lp.Email, lp.Password)
 	if err != nil {
-		ed.Ins.L.Err(err, "cannot login")
+		ed.Ins.L.Err(err, "cannot login", nil)
 		emailUserAuth := NewEmailUserAuthRenderData(actionPaths.BasePath)
 		emailUserAuth.FormErrors = []string{
 			"Incorrect email or password",

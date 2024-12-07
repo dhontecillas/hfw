@@ -131,8 +131,7 @@ func CreateInsightsBuilder(insConf *InsightsConfig,
 
 	nopTracerBuilder := traces.NewNopTracerBuilder()
 
-	insB := obs.NewInsighterBuilder(metricDefs, logBuilder,
-		meterBuilder, nopTracerBuilder)
+	insB := obs.NewInsighterBuilder(logBuilder, meterBuilder, nopTracerBuilder)
 
 	flushFn := multiFlushFn(logsFlushFn, meterFlushFn)
 	return insB, flushFn

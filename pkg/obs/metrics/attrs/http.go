@@ -18,6 +18,7 @@ const (
 	AttrHTTPStatus      string = string(semconv.HTTPResponseStatusCodeKey)
 	AttrHTTPStatusGroup string = "http.response.status_group" // 2xx , 3xx, 4xx or 5xx , to reduce metric cardinality
 
+	AttrHTTPRequestID string = "http.request.id" //
 	// -- HTTP metric signals
 
 	// counter: with the attributes:

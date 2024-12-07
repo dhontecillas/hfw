@@ -59,7 +59,7 @@ func testDBConfig() *db.Config {
 
 // BuildExternalServices createes the external services for
 // being used in tests.
-func BuildExternalServices() *extdeps.ExternalServices {
+func BuildExternalServices() *extdeps.ExternalServicesBuilder {
 	logFn := logs.NewNopLoggerBuilder()
 	meterFn, _ := metrics.NewNopMeterBuilder()
 	tracerFn := traces.NewNopTracerBuilder()
@@ -71,6 +71,6 @@ func BuildExternalServices() *extdeps.ExternalServices {
 	mailer := mailer.NewNopMailer()
 	composer := notifications.NewFileSystemComposer("./pkg/notifications")
 	flushFn := func() {}
-	return extdeps.NewExternalServices(insBuilderFn, flushFn, mailer,
+	return extdeps.NewExternalServicesBuilder(insBuilderFn, flushFn, mailer,
 		db.NewSQLDB(insBuilderFn(), sqlConf), composer)
 }

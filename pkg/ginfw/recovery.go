@@ -34,7 +34,7 @@ func RecoveryWithObs(ins *obs.Insighter) gin.HandlerFunc {
 			}
 
 			reqIns := ins
-			es, ok := c.Keys[extServicesKey].(*extdeps.ExternalServices)
+			es, ok := c.Keys[extServicesKey].(*extdeps.ExternalServicesBuilder)
 			if ok && es.Insighter() != nil {
 				// use the current request insighter if it is available
 				reqIns = es.Insighter()
@@ -55,10 +55,10 @@ func RecoveryWithObs(ins *obs.Insighter) gin.HandlerFunc {
 			if !ok {
 				lErr = fmt.Errorf("error: %#v", err)
 			}
-			msg := reqIns.L.ErrMsg(lErr, fmt.Sprintf("PANIC %s", lErr.Error()))
-			msg.Str("headers", strings.Join(headers, "\r\n"))
-			msg.Str("callstack", string(callStack))
-			msg.Send()
+			reqIns.L.Err(lErr, fmt.Sprintf("PANIC %s", lErr.Error()), map[string]interface{}{
+				"headers":   strings.Join(headers, "\r\n"),
+				"callstack": string(callStack),
+			})
 
 			// Check for a broken connection, as it is not really a
 			// condition that warrants a panic stack trace.

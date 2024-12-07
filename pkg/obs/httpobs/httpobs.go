@@ -3,6 +3,7 @@ package httpobs
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/obs"
@@ -19,6 +20,10 @@ import (
 func HTTPRequestAttrs(req *http.Request, route string) (map[string]interface{}, error) {
 	if req == nil {
 		return nil, fmt.Errorf("nil pointer")
+	}
+
+	if route == "" {
+		route = req.Pattern
 	}
 
 	// TODO: add headers, and cookies, current timestamp
@@ -78,4 +83,21 @@ func NewObsHTTPHandler(insBuilder obs.InsighterBuilderFn, next http.HandlerFunc)
 		span.F64(traceattrs.AttrHTTPDuration, secs)
 		span.End()
 	}
+}
+
+func headersToString(headers http.Header) string {
+	var hb strings.Builder
+	// TODO: we want the headers sorted by name
+	for k, v := range headers {
+		hb.WriteString(k)
+		hb.WriteString(":[")
+		for idx, vv := range v {
+			if idx > 0 {
+				hb.WriteString(",")
+			}
+			hb.WriteString(vv)
+		}
+		hb.WriteString("] ")
+	}
+	return hb.String()
 }

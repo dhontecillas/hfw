@@ -7,41 +7,40 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
-// ExternalServices holds references to services
+// ExternalServicesBuilder holds references to services
 // that could be needed to perform any operation
 // and that must be configured at startup time, like
 // and email sender, a sql db ...
-type ExternalServices struct {
+type ExternalServicesBuilder struct {
 	MailSender mailer.Mailer
 	SQL        db.SQLDB
 	Composer   notifications.Composer
 
 	// global configured insigher from where we will clone
-	ins      *obs.Insighter
-	insFlush func()
+	insBuilder obs.InsighterBuilderFn
+	insFlush   func()
 }
 
-// NewExternalServices creates a new ExternalServices instance
-func NewExternalServices(
+// NewExternalServicesBuilder creates a new ExternalServices instance
+func NewExternalServicesBuilder(
 	insighterBuilderFn obs.InsighterBuilderFn,
 	insighterFlushFn func(),
 	mailSender mailer.Mailer,
 	sql db.SQLDB,
-	composer notifications.Composer) *ExternalServices {
+	composer notifications.Composer) *ExternalServicesBuilder {
 
-	ins := insighterBuilderFn()
-	return &ExternalServices{
+	return &ExternalServicesBuilder{
 		MailSender: mailSender,
 		SQL:        sql,
 		Composer:   composer,
-		ins:        ins,
+		insBuilder: insighterBuilderFn,
 		insFlush:   insighterFlushFn,
 	}
 }
 
 // Shutdown all the service references inside
 // the ExternalServices
-func (es *ExternalServices) Shutdown() {
+func (es *ExternalServicesBuilder) Shutdown() {
 	es.SQL.Close()
 	if es.insFlush != nil {
 		es.insFlush()
@@ -49,16 +48,16 @@ func (es *ExternalServices) Shutdown() {
 }
 
 // Insighter returns an Insighter instance
-func (es *ExternalServices) Insighter() *obs.Insighter {
-	return es.ins
+func (es *ExternalServicesBuilder) Insighter() *obs.Insighter {
+	return es.insBuilder()
 }
 
 // ExtServices returns a new ExtServices to be used
-func (es *ExternalServices) ExtServices() *ExtServices {
+func (es *ExternalServicesBuilder) ExtServices() *ExtServices {
 	return &ExtServices{
 		MailSender: es.MailSender,
 		SQL:        es.SQL,
 		Composer:   es.Composer,
-		Ins:        es.ins.Clone(),
+		Ins:        es.insBuilder(),
 	}
 }

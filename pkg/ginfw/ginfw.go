@@ -19,7 +19,7 @@ func ExtServices(c *gin.Context) *extdeps.ExtServices {
 
 // ExtServicesMiddleware creates a new ExternalServices (or external dependencies)
 // for the incoming request, and stores it in the gin context
-func ExtServicesMiddleware(es *extdeps.ExternalServices) gin.HandlerFunc {
+func ExtServicesMiddleware(es *extdeps.ExternalServicesBuilder) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(extServicesKey, es.ExtServices())
 		c.Next()

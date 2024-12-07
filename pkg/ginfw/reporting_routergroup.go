@@ -22,17 +22,20 @@ func NewGroup(r *gin.RouterGroup, ins *obs.Insighter) *ReportingRouterGroup {
 }
 
 func (r *ReportingRouterGroup) report(method string, route string) {
-	m := r.ins.L.InfoMsg("Route Registered").Str("method", method)
+	var fullRoute string
 	if strings.HasPrefix(route, "/") {
-		m = m.Str("route", r.wrapped.BasePath()+route)
+		fullRoute = r.wrapped.BasePath() + route
 	} else {
-		m = m.Str("route", r.wrapped.BasePath()+"/"+route)
+		fullRoute = r.wrapped.BasePath() + "/" + route
 	}
-	m.Send()
+	r.ins.L.Info("route registered", map[string]interface{}{
+		"method": method,
+		"route":  fullRoute,
+	})
 }
 
 func (r *ReportingRouterGroup) Use(hfs ...gin.HandlerFunc) gin.IRoutes {
-	r.ins.L.Info(fmt.Sprintf("Using Middleware %#v", hfs))
+	r.ins.L.Info(fmt.Sprintf("Using Middleware %#v", hfs), nil)
 	return r.wrapped.Use(hfs...)
 }
 

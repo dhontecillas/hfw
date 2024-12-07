@@ -51,11 +51,13 @@ func (t *tokenAPI) CreateKey(userID ids.ID, description string) (*APIKey, error)
 		t.ins.L.Err(err, "cannot create unique id")
 		return nil, err
 	}
-	t.ins.L.WarnMsg("create key").Str("key", key.ToUUID()).
-		Str("userID", userID.ToUUID()).Send()
+	t.ins.L.Warn("create key", map[string]interface{}{
+		"key":    key.ToUUID(),
+		"userID": userID.ToUUID(),
+	})
 	res, err := t.repo.CreateKey(key, userID, description, time.Now())
 	if err != nil {
-		t.ins.L.Err(err, "cannot create key")
+		t.ins.L.Err(err, "cannot create key", nil)
 	}
 	return res, err
 }
