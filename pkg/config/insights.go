@@ -6,10 +6,11 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs"
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 	"github.com/dhontecillas/hfw/pkg/obs/metrics"
+	metricattrs "github.com/dhontecillas/hfw/pkg/obs/metrics/attrs"
+	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
+	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/traces/attrs"
 	"github.com/spf13/viper"
-
-	"github.com/dhontecillas/hfw/pkg/ginfw"
 )
 
 const (
@@ -30,8 +31,7 @@ const (
 
 // InsightsConfig holds the information for the metrics
 type InsightsConfig struct {
-	TagDefs    []obs.TagDefinition
-	MetricDefs metrics.Defs
+	MetricDefs metrics.MetricDefinitionList
 
 	PrometheusEnabled bool   // prometheus enabled or not
 	PrometheusPort    int    // port where serving the metrics
@@ -95,61 +95,9 @@ func (ic *InsightsConfig) loadSentryConfig(confPrefix string) {
 	}
 }
 
-func defaultMetricsConfig() metrics.Defs {
-	requestLabels := []string{
-		ginfw.LabelInsPath,
-		ginfw.LabelInsMethod,
-	}
-
-	responseLabels := []string{
-		ginfw.LabelInsStatus,
-	}
-	responseLabels = append(responseLabels, requestLabels...)
-
-	dbconnErrorLabels := []string{
-		ginfw.LabelMetDBAddress,
-		ginfw.LabelMetDBDatasource,
-	}
-	dbconnErrorLabels = append(dbconnErrorLabels, requestLabels...)
-
-	redisconnErrorLabels := []string{
-		ginfw.LabelMetRedisPool,
-		ginfw.LabelMetRedisAddress,
-	}
-	redisconnErrorLabels = append(redisconnErrorLabels, requestLabels...)
-
-	distributionMetrics := map[string][]string{
-		ginfw.MetReqDuration:    responseLabels,
-		ginfw.MetReqSize:        responseLabels,
-		ginfw.MetDBDuration:     responseLabels,
-		ginfw.MetRedisConnError: redisconnErrorLabels,
-	}
-
-	countMetrics := map[string][]string{
-		ginfw.MetReqCount:    responseLabels,
-		ginfw.MetReqTimeout:  responseLabels,
-		ginfw.MetDBConnError: dbconnErrorLabels,
-	}
-
-	mDefs := make(metrics.Defs, 0, len(distributionMetrics))
-
-	for dm, lbls := range distributionMetrics {
-		mDefs = append(mDefs, metrics.Def{
-			Name:       dm,
-			MetricType: metrics.MetricTypeHistogram,
-			Labels:     lbls,
-		})
-	}
-
-	for cm, lbls := range countMetrics {
-		mDefs = append(mDefs, metrics.Def{
-			Name:       cm,
-			MetricType: metrics.MetricTypeMonotonicCounter,
-			Labels:     lbls,
-		})
-	}
-
-	return mDefs
+func defaultMetricsConfig() metrics.MetricDefinitionList {
+	metricDefs := metricsdefaults.HTTPDefaultMetricDefinitions()
+	return metricDefs
 }
 
 // ReadInsightsConfig reads the configuration for "routing" the
@@ -157,45 +105,8 @@ func defaultMetricsConfig() metrics.Defs {
 // loads the configuration for logs / metrics / traces services.
 func ReadInsightsConfig(confPrefix string) *InsightsConfig {
 	conf := &InsightsConfig{
-		TagDefs: []obs.TagDefinition{
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsStatus,
-				TagType: obs.TagTypeI64,
-				ToL:     true,
-				ToM:     true,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsPath,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     false,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsMethod,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     true,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsReqID,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     true,
-			},
-			obs.TagDefinition{
-				Name:    ginfw.LabelInsRemoteIP,
-				TagType: obs.TagTypeStr,
-				ToL:     true,
-				ToM:     false,
-				ToT:     false,
-			},
-		},
+		MetricDefs: defaultMetricsConfig(),
 	}
-	conf.MetricDefs = defaultMetricsConfig()
 	conf.loadPrometheusConfig(confPrefix)
 	conf.loadGraylogConfig(confPrefix)
 	conf.loadSentryConfig(confPrefix)
@@ -206,7 +117,7 @@ func ReadInsightsConfig(confPrefix string) *InsightsConfig {
 // function, based on the insConf configuration. It can also merge
 // a list of additional metric definitions.
 func CreateInsightsBuilder(insConf *InsightsConfig,
-	metricDefs metrics.Defs) (obs.InsighterBuilderFn, func()) {
+	metricDefs metrics.MetricDefinitionList) (obs.InsighterBuilderFn, func()) {
 
 	if len(metricDefs) > 0 {
 		mDefs := insConf.MetricDefs.Merge(metricDefs, false)
@@ -220,8 +131,7 @@ func CreateInsightsBuilder(insConf *InsightsConfig,
 
 	nopTracerBuilder := traces.NewNopTracerBuilder()
 
-	insB := obs.NewInsighterBuilder(insConf.TagDefs, logBuilder,
-		meterBuilder, nopTracerBuilder)
+	insB := obs.NewInsighterBuilder(logBuilder, meterBuilder, nopTracerBuilder)
 
 	flushFn := multiFlushFn(logsFlushFn, meterFlushFn)
 	return insB, flushFn
@@ -262,16 +172,19 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 			FlushTimeoutSecs: 2,
 			LevelThreshold:   "warning",
 			AllowedTags: []string{
-				ginfw.LabelInsMethod,
-				ginfw.LabelInsPath,
-				ginfw.LabelInsRemoteIP,
-				ginfw.LabelInsReqID,
-				ginfw.LabelInsStatus,
+				metricattrs.AttrApp,
+				metricattrs.AttrHTTPMethod,
+				metricattrs.AttrHTTPRoute,
+				tracesattrs.AttrHTTPPath,
+				tracesattrs.AttrHTTPRemoteIP,
+				"req_id",
+				metricattrs.AttrHTTPStatus,
+				metricattrs.AttrHTTPStatusGroup,
 			},
 		}
 		sentryBuilder, sentryFlush, err := logs.NewSentryBuilder(sentryConf)
 		if err != nil {
-			l.Err(err, "cannot create sentry logger builder")
+			l.Err(err, "cannot create sentry logger builder", nil)
 		} else {
 			loggerBuilders = append(loggerBuilders, sentryBuilder)
 			flushers = append(flushers, sentryFlush)
@@ -291,15 +204,15 @@ func newMeterBuilder(l logs.Logger, conf *InsightsConfig) (metrics.MeterBuilderF
 	if conf.PrometheusEnabled {
 		strPort := fmt.Sprintf(":%d", conf.PrometheusPort)
 		promConf := &metrics.PrometheusConfig{
-			ServerPort:        strPort,
-			ServerPath:        conf.PrometheusPath,
-			MetricDefinitions: conf.MetricDefs,
-			MetricsPrefix:     conf.PrometheusPrefix,
+			ServerPort:    strPort,
+			ServerPath:    conf.PrometheusPath,
+			MetricsPrefix: conf.PrometheusPrefix,
 		}
 
-		promMeterBuilder, err := metrics.NewPrometheusMeterBuilder(l, promConf)
+		promMeterBuilder, err := metrics.NewPrometheusMeterBuilder(l, promConf,
+			conf.MetricDefs)
 		if err != nil {
-			l.Err(err, "cannot create prometheus meter builder")
+			l.Err(err, "cannot create prometheus meter builder", nil)
 		} else {
 			enabledMeters = append(enabledMeters, promMeterBuilder)
 		}
@@ -316,7 +229,7 @@ func newMeterBuilder(l logs.Logger, conf *InsightsConfig) (metrics.MeterBuilderF
 	}
 	meterBuilder, err := metrics.NewMultiMeterBuilder(l, enabledMeters...)
 	if err != nil {
-		l.Err(err, "cannot send metrics to multiple sinks, defaulting to first one")
+		l.Err(err, "cannot send metrics to multiple sinks, defaulting to first one", nil)
 		return enabledMeters[0], func() {}
 	}
 	return meterBuilder, func() {}

@@ -48,7 +48,7 @@ func WAPIRegister(c *gin.Context, actionPaths *ActionPaths) {
 	err := c.ShouldBindJSON(&p)
 	if err != nil {
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.Err(err, "cannot bind the payload")
+		deps.Ins.L.Err(err, "cannot bind the payload", nil)
 		c.JSON(http.StatusBadRequest, FailRes{Error: err.Error()})
 		return
 	}
@@ -89,7 +89,7 @@ func WAPIRequestPasswordReset(c *gin.Context, actionPaths *ActionPaths) {
 		// c.JSON(http.StatusBadRequest, FailRes{Error: err.Error()})
 		// we alway return Ok, to not leak if an email exists or not
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.Err(err, "cannot bind the payload")
+		deps.Ins.L.Err(err, "cannot bind the payload", nil)
 		c.JSON(http.StatusOK, OKRes{Success: true})
 		return
 	}
@@ -98,7 +98,7 @@ func WAPIRequestPasswordReset(c *gin.Context, actionPaths *ActionPaths) {
 	if err != nil {
 		// we do not leak info about if the user exists or not
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.Err(err, "cannot request password reset")
+		deps.Ins.L.Err(err, "cannot request password reset", nil)
 		c.JSON(http.StatusOK, OKRes{Success: true})
 	}
 	c.JSON(http.StatusOK, OKRes{Success: true})
@@ -111,7 +111,7 @@ func WAPIResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 	err := c.ShouldBindJSON(&p)
 	if err != nil {
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.Err(err, "cannot bind the payload")
+		deps.Ins.L.Err(err, "cannot bind the payload", nil)
 		// c.JSON(http.StatusBadRequest, FailRes{Error: err.Error()})
 		// we alway return Ok, to not leak if an email exists or not
 		c.JSON(http.StatusOK, OKRes{Success: true})
@@ -122,7 +122,7 @@ func WAPIResetPasswordWithToken(c *gin.Context, actionPaths *ActionPaths) {
 	if err != nil {
 		// we do not leak info about if the user exists or not
 		deps := ginfw.ExtServices(c)
-		deps.Ins.L.Err(err, "cannot reset password with token")
+		deps.Ins.L.Err(err, "cannot reset password with token", nil)
 		// c.JSON(http.StatusBadRequest, FailRes{Error: err.Error()})
 		// we alway return Ok, to not leak if an email exists or not
 		c.JSON(http.StatusOK, OKRes{Success: true})

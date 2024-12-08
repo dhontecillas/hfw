@@ -3,10 +3,12 @@ package logs
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/dhontecillas/hfw/pkg/obs/attrs"
 	"github.com/getsentry/sentry-go"
 )
 
@@ -20,13 +22,13 @@ var (
 // SentryConf contains the values to initialize
 // a Sentry logger.
 type SentryConf struct {
-	Dsn              string
-	AttachStacktrace bool
-	SampleRate       float64
-	Release          string
-	Environment      string
-	FlushTimeoutSecs int
-	LevelThreshold   string // the mininimum level required to be sent
+	Dsn              string  `json:"dsn"`
+	AttachStacktrace bool    `json:"attach_stacktrace"`
+	SampleRate       float64 `json:"sample_rate"`
+	Release          string  `json:"release"`
+	Environment      string  `json:"environment"`
+	FlushTimeoutSecs int     `json:"flush_timeout_secs`
+	LevelThreshold   string  `json:"level_threshold"` // the mininimum level required to be sent
 	AllowedTags      []string
 }
 
@@ -48,9 +50,11 @@ type SentryLogger struct {
 // SentryLoggerMsg implements a LogMessage that can be sent
 // to Sentry.
 type SentryLoggerMsg struct {
-	hub   *sentry.Hub
-	entry *sentry.Event
-	err   error
+	hub         *sentry.Hub
+	entry       *sentry.Event
+	err         error
+	skipLevels  map[sentry.Level]bool
+	allowedTags map[string]struct{}
 }
 
 // newSentryLogger returns a logger sending errors
@@ -143,62 +147,61 @@ func (l *SentryLogger) entry() *SentryLoggerMsg {
 	e.Extra["file"] = file
 	e.Tags["filepos"] = file
 	return &SentryLoggerMsg{
-		hub:   l.hub,
-		entry: e,
+		hub:         l.hub,
+		entry:       e,
+		err:         nil,
+		skipLevels:  l.skipLevels,
+		allowedTags: l.allowedTags,
 	}
 }
 
 // Clone clones a Sentry logger.
 func (l *SentryLogger) Clone() Logger {
-	return &SentryLogger{hub: l.hub.Clone()}
-}
-
-// Trace logs a message with the trace level
-func (l *SentryLogger) Trace(msg string) {
-	if l.skipLevels[sentry.LevelInfo] {
-		return
+	return &SentryLogger{
+		hub:         l.hub.Clone(),
+		skipLevels:  l.skipLevels,
+		allowedTags: l.allowedTags,
 	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelInfo
-	e.entry.Message = msg
-	e.Send()
 }
 
 // Debug logs a message with the debug level
-func (l *SentryLogger) Debug(msg string) {
+func (l *SentryLogger) Debug(msg string, attrMap map[string]interface{}) {
 	if l.skipLevels[sentry.LevelDebug] {
 		return
 	}
 	e := l.entry()
 	e.entry.Level = sentry.LevelDebug
 	e.entry.Message = msg
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
 // Info logs a message with the info level
-func (l *SentryLogger) Info(msg string) {
+func (l *SentryLogger) Info(msg string, attrMap map[string]interface{}) {
 	if l.skipLevels[sentry.LevelInfo] {
 		return
 	}
 	e := l.entry()
 	e.entry.Level = sentry.LevelInfo
 	e.entry.Message = msg
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
 // Warn logs a message with the warn level
-func (l *SentryLogger) Warn(msg string) {
+func (l *SentryLogger) Warn(msg string, attrMap map[string]interface{}) {
 	if l.skipLevels[sentry.LevelWarning] {
 		return
 	}
 	e := l.entry()
 	e.entry.Level = sentry.LevelWarning
 	e.entry.Message = msg
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
 // Err logs a message with the error level
-func (l *SentryLogger) Err(err error, msg string) {
+func (l *SentryLogger) Err(err error, msg string, attrMap map[string]interface{}) {
 	if l.skipLevels[sentry.LevelError] {
 		return
 	}
@@ -209,158 +212,83 @@ func (l *SentryLogger) Err(err error, msg string) {
 	e.entry.Level = sentry.LevelError
 	e.entry.Message = msg
 	e.err = err
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
 // Fatal logs a message with the fatal level
-func (l *SentryLogger) Fatal(msg string) {
+func (l *SentryLogger) Fatal(msg string, attrMap map[string]interface{}) {
 	e := l.entry()
 	e.entry.Level = sentry.LevelFatal
 	e.entry.Message = msg
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
 // Panic logs a message with the fatal level
-func (l *SentryLogger) Panic(msg string) {
+func (l *SentryLogger) Panic(msg string, attrMap map[string]interface{}) {
 	e := l.entry()
 	e.entry.Level = sentry.LevelFatal // we do not have Panic level in sentry
 	e.entry.Message = msg
+	e.SetAttrs(attrMap)
 	e.Send()
 }
 
-// TraceMsg creates a LogMsg that inherit the logger
-// tags with a trace level.
-func (l *SentryLogger) TraceMsg(msg string) LogMsg {
-	if l.skipLevels[sentry.LevelInfo] {
-		return &NopLoggerMsg{}
-	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelInfo // sentry does not have Trace level
-	e.entry.Message = msg
-	return e
-}
-
-// DebugMsg creates a LogMsg that inherit the logger
-// tags with a debug level.
-func (l *SentryLogger) DebugMsg(msg string) LogMsg {
-	if l.skipLevels[sentry.LevelDebug] {
-		return &NopLoggerMsg{}
-	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelDebug
-	e.entry.Message = msg
-	return e
-}
-
-// InfoMsg creates a LogMsg that inherit the logger
-// tags with a info level.
-func (l *SentryLogger) InfoMsg(msg string) LogMsg {
-	if l.skipLevels[sentry.LevelInfo] {
-		return &NopLoggerMsg{}
-	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelInfo
-	e.entry.Message = msg
-	return e
-}
-
-// WarnMsg creates a LogMsg that inherit the logger
-// tags with a warn level.
-func (l *SentryLogger) WarnMsg(msg string) LogMsg {
-	if l.skipLevels[sentry.LevelWarning] {
-		return &NopLoggerMsg{}
-	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelWarning
-	e.entry.Message = msg
-	return e
-}
-
-// ErrMsg creates a LogMsg that inherit the logger
-// tags with a error level.
-func (l *SentryLogger) ErrMsg(err error, msg string) LogMsg {
-	if l.skipLevels[sentry.LevelError] {
-		return &NopLoggerMsg{}
-	}
-	e := l.entry()
-	e.entry.Level = sentry.LevelError
-	e.entry.Message = msg
-	e.err = err
-	return e
-}
-
-// FatalMsg creates a LogMsg that inherit the logger
-// tags with a fatal level.
-func (l *SentryLogger) FatalMsg(msg string) LogMsg {
-	e := l.entry()
-	e.entry.Level = sentry.LevelFatal
-	e.entry.Message = msg
-	return e
-}
-
-// PanicMsg creates a LogMsg that inherit the logger
-// tags with a panic level.
-func (l *SentryLogger) PanicMsg(msg string) LogMsg {
-	e := l.entry()
-	e.entry.Level = sentry.LevelFatal // sentry does not have Panic level
-	e.entry.Message = msg
-	return e
-}
-
 // Str adds a tag to the logger of type string
-func (l *SentryLogger) Str(key, val string) Logger {
-	if _, ok := l.allowedTags[key]; ok {
-		l.hub.Scope().SetTag(key, val)
-	} else {
-		l.hub.Scope().SetExtra(key, val)
+func (l *SentryLogger) Str(key, val string) {
+	s := l.hub.Scope()
+	if s == nil {
+		return
 	}
-	return l
+	if _, ok := l.allowedTags[key]; ok {
+		s.SetTag(key, val)
+	} else {
+		s.SetExtra(key, val)
+	}
 }
 
 // I64 adds a tag to the logger of type int64
-func (l *SentryLogger) I64(key string, val int64) Logger {
-	if _, ok := l.allowedTags[key]; ok {
-		l.hub.Scope().SetTag(key, fmt.Sprintf("%d", val))
-	} else {
-		l.hub.Scope().SetExtra(key, fmt.Sprintf("%d", val))
+func (l *SentryLogger) I64(key string, val int64) {
+	s := l.hub.Scope()
+	if s == nil {
+		return
 	}
-	return l
+	if _, ok := l.allowedTags[key]; ok {
+		s.SetTag(key, strconv.FormatInt(val, 10))
+	} else {
+		s.SetExtra(key, val)
+	}
 }
 
 // F64 adds a tag to the logger of type float64
-func (l *SentryLogger) F64(key string, val float64) Logger {
-	if _, ok := l.allowedTags[key]; ok {
-		l.hub.Scope().SetTag(key, fmt.Sprintf("%f", val))
-	} else {
-		l.hub.Scope().SetExtra(key, fmt.Sprintf("%f", val))
+func (l *SentryLogger) F64(key string, val float64) {
+	s := l.hub.Scope()
+	if s == nil {
+		return
 	}
-	return l
+	if _, ok := l.allowedTags[key]; ok {
+		s.SetTag(key, strconv.FormatFloat(val, 'G', 9, 64))
+	} else {
+		s.SetExtra(key, val)
+	}
 }
 
 // Bool adds a tag to the logger of type bool
-func (l *SentryLogger) Bool(key string, val bool) Logger {
-	if _, ok := l.allowedTags[key]; ok {
-		l.hub.Scope().SetTag(key, fmt.Sprintf("%t", val))
-	} else {
-		l.hub.Scope().SetExtra(key, fmt.Sprintf("%t", val))
+func (l *SentryLogger) Bool(key string, val bool) {
+	s := l.hub.Scope()
+	if s == nil {
+		return
 	}
-	return l
+	if _, ok := l.allowedTags[key]; ok {
+		s.SetTag(key, strconv.FormatBool(val))
+	} else {
+		s.SetExtra(key, val)
+	}
 }
 
 // Labels sets labels for a logger in a batch
-func (l *SentryLogger) Labels(labels map[string]interface{}) Logger {
-	for k, v := range labels {
-		if str, ok := v.(string); ok {
-			l.Str(k, str)
-		} else if i64, ok := v.(int64); ok {
-			l.I64(k, i64)
-		} else if f64, ok := v.(float64); ok {
-			l.F64(k, f64)
-		} else if b, ok := v.(bool); ok {
-			l.Bool(k, b)
-		}
-	}
-	return l
+func (l *SentryLogger) SetAttrs(attrMap map[string]interface{}) {
+	attrs.ApplyAttrs(l, attrMap)
 }
 
 // Req prepares a log to include http request information.
@@ -374,54 +302,70 @@ func (l *SentryLogger) Req(req *http.Request) Logger {
 
 // Send the message that has been constructed.
 func (m *SentryLoggerMsg) Send() {
-	if m.entry.Level == sentry.LevelError {
-		m.hub.WithScope(func(s *sentry.Scope) {
-			s.SetExtras(m.entry.Extra)
-			s.SetTags(m.entry.Tags)
-			s.AddEventProcessor(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
-				event.Message = m.entry.Message
-				// keep only the first exception, because it already contains all levels
-				// from the other error wrappers, we just need to extract the message
-				// from the top level so we keep the detailed info.
-				if len(event.Exception) > 0 {
-					e := event.Exception[0]
-					switch e.Type {
-					// hide unnecessary types used in errors.Wrap calls
-					case "*errors.withMessage", "*errors.withStack", "*errors.fundamental":
-						e.Type = ""
-					}
-					e.Value = event.Exception[len(event.Exception)-1].Value
-					event.Exception = []sentry.Exception{e}
-				}
-				return event
-			})
-			m.hub.CaptureException(m.err)
-		})
-	} else {
+	if m.entry.Level != sentry.LevelError {
 		m.hub.CaptureEvent(m.entry)
+		return
 	}
+	m.hub.WithScope(func(s *sentry.Scope) {
+		s.SetExtras(m.entry.Extra)
+		s.SetTags(m.entry.Tags)
+		s.AddEventProcessor(func(event *sentry.Event, hint *sentry.EventHint) *sentry.Event {
+			event.Message = m.entry.Message
+			// keep only the first exception, because it already contains all levels
+			// from the other error wrappers, we just need to extract the message
+			// from the top level so we keep the detailed info.
+			if len(event.Exception) > 0 {
+				e := event.Exception[0]
+				switch e.Type {
+				// hide unnecessary types used in errors.Wrap calls
+				case "*errors.withMessage", "*errors.withStack", "*errors.fundamental":
+					e.Type = ""
+				}
+				e.Value = event.Exception[len(event.Exception)-1].Value
+				event.Exception = []sentry.Exception{e}
+			}
+			return event
+		})
+		m.hub.CaptureException(m.err)
+	})
 }
 
 // Str adds a tag to the message of type string.
-func (m *SentryLoggerMsg) Str(key, val string) LogMsg {
+func (m *SentryLoggerMsg) Str(key, val string) {
+	if _, ok := m.allowedTags[key]; ok {
+		m.entry.Tags[key] = val
+		return
+	}
 	m.entry.Extra[key] = val
-	return m
 }
 
 // I64 adds a tag to the message of type int64.
-func (m *SentryLoggerMsg) I64(key string, val int64) LogMsg {
+func (m *SentryLoggerMsg) I64(key string, val int64) {
+	if _, ok := m.allowedTags[key]; ok {
+		m.entry.Tags[key] = strconv.FormatInt(val, 10)
+		return
+	}
 	m.entry.Extra[key] = val
-	return m
 }
 
 // F64 adds a tag to the message of type float64.
-func (m *SentryLoggerMsg) F64(key string, val float64) LogMsg {
+func (m *SentryLoggerMsg) F64(key string, val float64) {
+	if _, ok := m.allowedTags[key]; ok {
+		m.entry.Tags[key] = strconv.FormatFloat(val, 'G', 9, 64)
+		return
+	}
 	m.entry.Extra[key] = val
-	return m
 }
 
 // Bool adds a tag to the message of type bool.
-func (m *SentryLoggerMsg) Bool(key string, val bool) LogMsg {
+func (m *SentryLoggerMsg) Bool(key string, val bool) {
+	if _, ok := m.allowedTags[key]; ok {
+		m.entry.Tags[key] = strconv.FormatBool(val)
+		return
+	}
 	m.entry.Extra[key] = val
-	return m
+}
+
+func (m *SentryLoggerMsg) SetAttrs(attrMap map[string]interface{}) {
+	attrs.ApplyAttrs(m, attrMap)
 }

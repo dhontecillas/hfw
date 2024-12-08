@@ -6,8 +6,11 @@ global:
 scrape_configs:
   - job_name: 'obs_example'
     scrape_interval: 5s
-    metrics_path: '/prom_metrics'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['172.17.0.1:9876']
         labels:
           app: 'obs_example'
+      - targets: ['192.168.1.12:9876']
+        labels:
+          app: 'local_obs_example'

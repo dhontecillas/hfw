@@ -3,7 +3,6 @@ package bundler
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,7 +35,7 @@ func TestCopyFileAndHash(t *testing.T) {
 		return
 	}
 
-	CopyFile(srcFile, dstFile)
+	_ = CopyFile(srcFile, dstFile)
 	readHash, err := ComputeFileHash(dstFile)
 	if err != nil {
 		t.Errorf("error happened computing hash for %s : %s", dstFile, err)
@@ -54,7 +53,7 @@ func TestCopyDir(t *testing.T) {
 	dstDir := t.TempDir()
 
 	// create subfolders
-	os.MkdirAll(filepath.Join(srcDir, "a", "b", "c"), 0777)
+	_ = os.MkdirAll(filepath.Join(srcDir, "a", "b", "c"), 0777)
 	_, _ = createFile(filepath.Join(srcDir, "a", "foo.txt"), "foo")
 	_, _ = createFile(filepath.Join(srcDir, "a", "b", "bar.txt"), "bar")
 	_, _ = createFile(filepath.Join(srcDir, "a", "b", "c", "doah.txt"), "doah")
@@ -75,7 +74,7 @@ func TestCopyDir(t *testing.T) {
 		return
 	}
 
-	content, err := ioutil.ReadFile(filepath.Join(dstDir, "a", "b", "c", "doah.txt"))
+	content, err := os.ReadFile(filepath.Join(dstDir, "a", "b", "c", "doah.txt"))
 	if err != nil {
 		t.Errorf("cannot read copied file")
 		return

@@ -50,6 +50,9 @@ type RegistrationRepo interface {
 
 	// DeleteUser deletes a created user
 	DeleteUser(email string) error
+
+	// ListUsers lists users with pagination
+	ListUsers(from ids.ID, limit int, backwards bool) ([]User, error)
 }
 
 // HostInfo contains the required info to construct
@@ -129,7 +132,7 @@ func (r *EmailRegistration) sendMail(email string, notification string,
 	}
 
 	if sendEmailErr := r.mailSender.Send(emailMessage); err != nil {
-		r.ins.L.Err(sendEmailErr, "cannot send registration message")
+		r.ins.L.Err(sendEmailErr, "cannot send registration message", nil)
 		return fmt.Errorf("%w %s", ErrNotificationFailed, sendEmailErr)
 	}
 	return nil
@@ -144,7 +147,7 @@ func (r *EmailRegistration) Register(email string, password string) error {
 		// the issue that is in activation pending, because it failed
 		// to send the notification, so, in that case, we could retry
 		// to send an activation link to the email.
-		r.ins.L.Err(e, "cannot create innactive user")
+		r.ins.L.Err(e, "cannot create innactive user", nil)
 		return fmt.Errorf("cannot create innactive user: %w", e)
 	}
 
@@ -182,7 +185,6 @@ func (r *EmailRegistration) RequestResetPassword(email string) error {
 			"host":       r.hostInfo.Host,
 			"path":       r.hostInfo.ResetPasswordPath,
 		})
-	return nil
 }
 
 // ResetPasswordWithToken sets a new password for a given user using a

@@ -24,11 +24,11 @@ const (
 
 // MailerConfig contains the selected mailer configuration
 type MailerConfig struct {
-	Name          string
-	LogSentEmails bool
-	ConfPrefix    string
-	FromAddress   string
-	FromName      string
+	Name          string `json:"name"`
+	LogSentEmails bool   `json:"log_sent_mails"`
+	ConfPrefix    string `json:"conf_prefix"`
+	FromAddress   string `json:"from_address"`
+	FromName      string `json:"from_name"`
 }
 
 func (m *MailerConfig) String() string {
@@ -57,14 +57,16 @@ func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, err
 	}
 	if _, ok := allowedValues[selectedMailer]; !ok {
 		msg := fmt.Sprintf("cannot find mailer: %s", selectedMailer)
-		ins.L.Panic(msg)
+		ins.L.Panic("cannot find mailer", map[string]interface{}{
+			"mailer": selectedMailer,
+		})
 		panic(msg)
 	}
 
 	confKey = confPrefix + confKeyMailerFromAddress
 	if !viper.IsSet(confKey) {
 		msg := fmt.Sprintf("cannot read mailer sender address: %s", confKey)
-		ins.L.Panic(msg)
+		ins.L.Panic(msg, nil)
 		panic(msg)
 	}
 	fromAddress := viper.GetString(confKey)
@@ -86,15 +88,18 @@ func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, err
 func CreateMailer(ins *obs.Insighter, mailerConf *MailerConfig) (mailer.Mailer, error) {
 	if mailerConf == nil {
 		err := fmt.Errorf("no mailerConf provided")
-		ins.L.Err(err, "cannot create mailer")
+		ins.L.Err(err, "cannot create mailer", map[string]interface{}{
+			"conf": mailerConf.String(),
+		})
 		return nil, err
 	}
 	// check configuration and use approppriate mailer
 	var m mailer.Mailer
 	var err error
 
-	infMsg := fmt.Sprintf("Creating mailer: %s\n", mailerConf.String())
-	ins.L.Info(infMsg)
+	ins.L.Info("Creating mailer: %s\n", map[string]interface{}{
+		"conf": mailerConf.String(),
+	})
 	switch mailerConf.Name {
 	case consoleMailer:
 		m = mailer.NewConsoleMailer()
@@ -110,7 +115,7 @@ func CreateMailer(ins *obs.Insighter, mailerConf *MailerConfig) (mailer.Mailer, 
 	}
 
 	if err != nil {
-		ins.L.Err(err, "cannot create mailer")
+		ins.L.Err(err, "cannot create mailer", nil)
 		return nil, err
 	}
 	if mailerConf.LogSentEmails {
