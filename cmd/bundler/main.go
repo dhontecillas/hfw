@@ -8,7 +8,7 @@ import (
 
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
-	"github.com/dhontecillas/hfw/pkg/obs/metrics"
+	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 )
 
 const (
@@ -30,7 +30,7 @@ func main() {
 	if insConf == nil {
 		panic("insConf is null")
 	}
-	appMetricDefs := make(metrics.Defs, 0)
+	appMetricDefs := metricsdefaults.HTTPDefaultMetricDefinitions()
 	insB, insF := config.CreateInsightsBuilder(insConf, appMetricDefs)
 	ins := insB()
 	defer insF()
