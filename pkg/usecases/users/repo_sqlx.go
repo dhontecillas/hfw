@@ -67,7 +67,10 @@ WHERE
 	err := r.scanUser(row, &u)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			r.ins.L.Err(err, fmt.Sprintf("cannot find user with id %s", strUID))
+			r.ins.L.Err(err, "cannot find user id", map[string]interface{}{
+				"query": userQ,
+				"id":    strUID,
+			})
 		}
 		return nil
 	}
@@ -89,7 +92,10 @@ WHERE
 	err := r.scanUser(row, &u)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			r.ins.L.Err(err, fmt.Sprintf("cannot find user from email %s ", email))
+			r.ins.L.Err(err, "cannot find user from email", map[string]interface{}{
+				"query": userQ,
+				"email": email,
+			})
 		}
 		return nil
 	}
@@ -166,9 +172,11 @@ func (r *RepoSQLX) CreateInactiveUser(
 	u := r.getUserByEmail(tx, email)
 	if u != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
-		r.ins.L.Err(ErrUserExists, fmt.Sprintf("email: %s found in users table", email))
+		r.ins.L.Err(ErrUserExists, "email already exists", map[string]interface{}{
+			"email": email,
+		})
 		return "", ErrUserExists
 	}
 
@@ -184,7 +192,7 @@ WHERE
 `
 	if _, err := tx.Exec(discardExistingRequestQ, email); err != nil {
 		// just log the error
-		r.ins.L.Err(err, " cannot update registration requests")
+		r.ins.L.Err(err, " cannot update registration requests", nil)
 	}
 
 	hashedPass := r.passwordHash(password)
@@ -210,9 +218,11 @@ VALUES(
 	_, err = tx.Exec(sqlQ, email, token,
 		now, expires, hashedPass)
 	if err != nil {
-		r.ins.L.Err(err, "error executing query")
+		r.ins.L.Err(err, "error executing query", map[string]interface{}{
+			"query": sqlQ,
+		})
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return "", err
 	}
@@ -246,7 +256,7 @@ FOR UPDATE
 	row := tx.QueryRowx(findQ, token)
 	if row == nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, ErrNotFound
 	}
@@ -260,7 +270,7 @@ FOR UPDATE
 		&rq.password,
 		&consumed,
 	); err != nil {
-		r.ins.L.Err(err, fmt.Sprintf("cannot scan row %s", err.Error()))
+		r.ins.L.Err(err, fmt.Sprintf("cannot scan row %s", err.Error()), nil)
 		return nil, err
 	}
 	if consumed != nil {
@@ -269,14 +279,14 @@ FOR UPDATE
 
 	if !rq.consumed.IsZero() {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, ErrConsumed
 	}
 
 	if now.After(rq.expires) {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, ErrExpired
 	}
@@ -290,7 +300,7 @@ WHERE
 `
 	if _, err := tx.Exec(consumeQ, token, now); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, err
 	}
@@ -312,16 +322,18 @@ VALUES(
 `
 	if _, err := tx.Exec(createUserQ, id.ToUUID(), rq.email, rq.password, now); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
-		r.ins.L.Err(err, "cannot complete transaction")
+		r.ins.L.Err(err, "cannot complete transaction", map[string]interface{}{
+			"query": createUserQ,
+		})
 		return nil, err
 	}
 
@@ -345,7 +357,7 @@ func (r *RepoSQLX) CreatePasswordResetRequest(email string) (*User, string, erro
 	u := r.getUserByEmail(tx, email)
 	if u == nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, "", ErrNotFound
 	}
@@ -362,7 +374,7 @@ WHERE
 
 	if _, err := tx.Exec(clearOldResetPasswordTokensQ, u.ID.ToUUID()); err != nil {
 		// just log the error, we don't care much about stale old tokens
-		r.ins.L.Err(err, "cannot clean existing reset tokens")
+		r.ins.L.Err(err, "cannot clean existing reset tokens", nil)
 	}
 
 	expirationHours := 24
@@ -384,15 +396,15 @@ VALUES (
 `
 	if _, err := tx.Exec(insertTokenQ, u.ID.ToUUID(), token, now, expires); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
-		r.ins.L.Err(err, "cannot create reset password token")
+		r.ins.L.Err(err, "cannot create reset password token", nil)
 		return nil, "", fmt.Errorf("cannot create reset password token for %s: %w",
 			u.ID.ToUUID(), err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		r.ins.L.Err(err, "cannot commit resest password request")
+		r.ins.L.Err(err, "cannot commit resest password request", nil)
 		return nil, "", err
 	}
 	return u, token, nil
@@ -436,9 +448,11 @@ WHERE
 		&rpr.expires,
 		&consumed); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
-		r.ins.L.Err(err, fmt.Sprintf("q = %s", checkTokenQ))
+		r.ins.L.Err(err, "cannot scan result", map[string]interface{}{
+			"query": checkTokenQ,
+		})
 		return nil, err
 	}
 	if consumed != nil {
@@ -447,7 +461,7 @@ WHERE
 
 	if !rpr.consumed.IsZero() {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, fmt.Errorf("token already consumed")
 	}
@@ -455,7 +469,7 @@ WHERE
 	now := time.Now()
 	if now.After(rpr.expires) {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		return nil, fmt.Errorf("token expired")
 	}
@@ -469,7 +483,7 @@ WHERE
 `
 	if _, err := tx.Exec(consumeTokenQ, now, token); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		werr := fmt.Errorf("cannot consume token %s: %w", token, err)
 		return nil, werr
@@ -486,7 +500,7 @@ WHERE
 
 	if _, err := tx.Exec(updatePasswordQ, passHash, rpr.userID); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		werr := fmt.Errorf("cannot set password %s: %w", token, err)
 		return nil, werr
@@ -494,13 +508,13 @@ WHERE
 
 	var id ids.ID
 	if err := id.FromUUID(rpr.userID); err != nil {
-		r.ins.L.Err(err, "bad userID format")
+		r.ins.L.Err(err, "bad userID format", nil)
 		return nil, err
 	}
 	u := r.getUserByID(tx, id)
 	if u == nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
-			r.ins.L.Err(rbErr, "rollback failed")
+			r.ins.L.Err(rbErr, "rollback failed", nil)
 		}
 		err := fmt.Errorf("cannot get user %s", rpr.userID)
 		return nil, err
@@ -550,4 +564,78 @@ WHERE
 	return err
 	// TODO: depending on the database we could check the RowsAffected
 	// if rows.RowsAffected() == 0, we could return a not found
+}
+
+// ListUsers lists users with pagination
+func (r *RepoSQLX) ListUsers(from ids.ID, limit int, backwards bool) ([]User, error) {
+	// TODO: check if we should do an union with the `user_registration_requests` to
+	// also list those users that have not activated the account
+	master := r.sqlDB.Master()
+	var rows *sqlx.Rows
+	var err error
+
+	if from.IsZero() {
+		q := `
+SELECT
+    id
+    , email
+    , created
+FROM users
+LIMIT $1
+`
+		rows, err = master.Queryx(q, limit)
+		if err != nil {
+			return []User{}, err
+		}
+	} else {
+		if !backwards {
+			q := `
+SELECT
+    id
+    , email
+    , created
+FROM users
+WHERE 
+    id > $1
+ORDER BY id
+LIMIT $2
+`
+			rows, err = master.Queryx(q, from.ToUUID(), limit)
+			if err != nil {
+				return []User{}, err
+			}
+		} else {
+			q := `
+WITH backpage AS (
+    SELECT 
+        id 
+    FROM users
+    WHERE id < $1
+    ORDER BY id DESC
+    LIMIT $2
+)
+SELECT
+    id
+    , email
+    , created
+FROM users
+WHERE id IN (SELECT id FROM backpage)
+ORDER BY id
+`
+			rows, err = master.Queryx(q, from.ToUUID(), limit)
+			if err != nil {
+				return []User{}, err
+			}
+		}
+	}
+
+	results := make([]User, 0, limit)
+	var u User
+	for rows.Next() {
+		if err := rows.StructScan(&u); err != nil {
+			return []User{}, err
+		}
+		results = append(results, u)
+	}
+	return results, nil
 }

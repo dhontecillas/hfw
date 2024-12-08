@@ -13,8 +13,7 @@ func TestMailer_LogWrapper(t *testing.T) {
 	logFn := logs.NewNopLoggerBuilder()
 	meterFn, _ := metrics.NewNopMeterBuilder()
 	tracerFn := traces.NewNopTracerBuilder()
-	insBuilder := obs.NewInsighterBuilder([]obs.TagDefinition{},
-		logFn, meterFn, tracerFn)
+	insBuilder := obs.NewInsighterBuilder(logFn, meterFn, tracerFn)
 	ins := insBuilder()
 
 	mm := NewMockMailer()

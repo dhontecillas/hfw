@@ -1,7 +1,6 @@
 package mailer
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/dhontecillas/hfw/pkg/obs"
@@ -29,9 +28,16 @@ func (m *LoggerMailer) Send(e Email) error {
 	err := m.wrapped.Send(e)
 	elapsed := time.Since(startTime)
 	if err != nil {
-		m.ins.L.Err(err, fmt.Sprintf("Mailer Send error (time: %s): %s", elapsed, e))
+		m.ins.L.Err(err, "mailer send error", map[string]interface{}{
+			"started": startTime.String(),
+			"elapsed": elapsed.String(),
+			"error":   err.Error(),
+		})
 	} else {
-		m.ins.L.Info(fmt.Sprintf("Mail SENT (time: %s): %s", elapsed, e))
+		m.ins.L.Info("mailer send email", map[string]interface{}{
+			"started": startTime.String(),
+			"elapsed": elapsed.String(),
+		})
 	}
 	return err
 }

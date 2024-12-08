@@ -31,21 +31,28 @@ type Meter interface {
 	// Dec decreases an integer value
 	Dec(key string)
 	// Add adds an int value
-	Add(key string, val float64)
+	Add(key string, val int64)
 	// Rec records a value (similar to what a Gauge would be)
 	Rec(key string, val float64)
 
 	// Str sets a label value for all metrics that have defined it
 	Str(key string, val string)
 
+	// Attrs sets several values for all metrics that have defined it
+	SetAttrs(mapAttrs map[string]interface{})
+
 	// IncWL increases and integer value adding labels to this records
-	IncWL(key string, labels map[string]string)
-	// DecWL decreases an integer value adding labels to this record
-	DecWL(key string, labels map[string]string)
-	// AddWL with labels that apply only to this record
-	AddWL(key string, val float64, labels map[string]string)
-	// RecWL with labels that apply only to this record
-	RecWL(key string, val float64, labels map[string]string)
+	IncWL(key string, attrMap map[string]interface{})
+	// DecWL decreases an integer value adding attrMap to this record
+	DecWL(key string, attrMap map[string]interface{})
+	// AddWL with attrMap that apply only to this record
+	AddWL(key string, val int64, attrMap map[string]interface{})
+	// RecWL with attrMap that apply only to this record
+	RecWL(key string, val float64, attrMap map[string]interface{})
+
+	// Clone returns a meter that has the same attributes set, but
+	// that is safe to be used concurrently
+	Clone() Meter
 }
 
 // MeterBuilderFn defines the type of a builder function for Meters

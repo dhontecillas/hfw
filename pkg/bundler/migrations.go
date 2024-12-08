@@ -2,7 +2,6 @@ package bundler
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,9 +48,11 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 	existing, issues := ListExistingMigrations(dstDir, l)
 
 	for k, v := range existing {
-		l.InfoMsg("existing migration").Str("name", k).
-			Str("up_hash", v.Up.Hash).
-			Str("down_hash", v.Down.Hash).Send()
+		l.Info("existing migration", map[string]interface{}{
+			"name":      k,
+			"up_hash":   v.Up.Hash,
+			"down_hash": v.Down.Hash,
+		})
 	}
 	srcMigrations := make(MigrationFiles)
 	for _, scanDir := range scanDirs {
@@ -59,21 +60,25 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 		issues = append(issues, dirIssues...)
 		for k, v := range dirMigrations {
 			if _, ok := srcMigrations[k]; ok {
-				l.WarnMsg("duplicate migration name").Str("name", k).Send()
+				l.Warn("duplicate migration name", map[string]interface{}{
+					"name": k,
+				})
 			}
 			srcMigrations[k] = v
 		}
 	}
 
 	if len(srcMigrations) == 0 {
-		l.WarnMsg("no migrations found").
-			Str("scan_dirs", strings.Join(scanDirs, ",")).
-			Send()
+		l.Warn("no migrations found", map[string]interface{}{
+			"scan_dirs": strings.Join(scanDirs, ","),
+		})
 	} else {
 		for k, v := range srcMigrations {
-			l.InfoMsg("found migration").Str("name", k).
-				Str("up_hash", v.Up.Hash).
-				Str("down_hash", v.Down.Hash).Send()
+			l.Info("found migration", map[string]interface{}{
+				"name":      k,
+				"up_hash":   v.Up.Hash,
+				"down_hash": v.Down.Hash,
+			})
 		}
 	}
 
@@ -122,10 +127,8 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 	}
 
 	if len(issues) > 0 {
-		l.WarnMsg("").Send()
-
 		for _, iss := range issues {
-			l.Err(iss, "migration issue")
+			l.Err(iss, "migration issue", nil)
 		}
 	}
 	return nil
@@ -134,7 +137,7 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 // ListExistingMigrations computes the hash for the 'up' and 'down'
 // migration files.
 func ListExistingMigrations(dstDir string, l logs.Logger) (MigrationFiles, []error) {
-	l.Info(fmt.Sprintf("listing existing migrations in: %s", dstDir))
+	l.Info(fmt.Sprintf("listing existing migrations in: %s", dstDir), nil)
 	migrationFiles := make(MigrationFiles)
 	issues := []error{}
 
@@ -229,12 +232,17 @@ func CollectMigrations(scanDir string, l logs.Logger) (MigrationFiles, []error) 
 // CollectMigrationsFromDir scans a single direcotry
 func CollectMigrationsFromDir(path string, migrations MigrationFiles, issues []error,
 	l logs.Logger) []error {
-	l.Info(fmt.Sprintf("collecting migrations from %s", path))
-	files, err := ioutil.ReadDir(path)
+	l.Info(fmt.Sprintf("collecting migrations from %s", path), nil)
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return append(issues, err)
 	}
-	for _, fi := range files {
+	for _, entry := range entries {
+		fi, err := entry.Info()
+		if err != nil {
+			// TODO: log som error here
+			continue
+		}
 		m, mIssues := migrationCandidate(path, fi)
 		if m != nil {
 			if _, ok := migrations[m.Up.Base]; ok {

@@ -1,5 +1,5 @@
 # **HFW**: Handy FrameWork
-![Coverage](https://img.shields.io/badge/Coverage-31.4%25-yellow)
+![Coverage](https://img.shields.io/badge/Coverage-15.2%25-red)
 
 [![Coverage Status](https://coveralls.io/repos/github/dhontecillas/hfw/badge.svg?branch=main)](https://coveralls.io/github/dhontecillas/hfw?branch=main)
 

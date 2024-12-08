@@ -18,7 +18,7 @@ const (
 
 // RequireAPIToken checks a valid token, and stores the
 // userID for the token to the context
-func RequireAPIToken(extDeps *extdeps.ExternalServices) gin.HandlerFunc {
+func RequireAPIToken(extDeps *extdeps.ExternalServicesBuilder) gin.HandlerFunc {
 	ins := extDeps.Insighter()
 	// here we construct the repository to check the api keys
 	tokenAPIRepo := tokenapi.NewRepoSQLX(ins, extDeps.SQL)

@@ -10,7 +10,7 @@ import (
 	hfwtest "github.com/dhontecillas/hfw/testing"
 )
 
-func createTestUser(deps *extdeps.ExternalServices) (*users.User, error) {
+func createTestUser(deps *extdeps.ExternalServicesBuilder) (*users.User, error) {
 	email := "example@example.com"
 	pass := "bar"
 	r := users.NewRepoSQLX(deps.Insighter(), deps.SQL, "tokenSalt")

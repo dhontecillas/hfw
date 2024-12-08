@@ -1,14 +1,13 @@
 package bundler
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
 func Test_PrepareBundleDirs(t *testing.T) {
-	tmpDirName, err := ioutil.TempDir("", "Test_PrepareBundleDirs_*")
+	tmpDirName, err := os.MkdirTemp("", "Test_PrepareBundleDirs_*")
 	if err != nil {
 		t.Errorf("cannot create tmpDirName")
 		return

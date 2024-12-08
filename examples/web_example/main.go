@@ -66,19 +66,20 @@ func main() {
 	// to have a clean shutdown of the reporting (that is sending
 	// pending metrics and logs before closing the app)
 	insBuilder, insFlush := config.CreateInsightsBuilder(insConfig,
-		metrics.Defs{})
-	es := config.BuildExternalServices(ConfAppPrefix, insBuilder, insFlush)
-	defer es.Shutdown()
+		metrics.MetricDefinitionList{})
+	depsBuilder := config.BuildExternalServices(ConfAppPrefix, insBuilder, insFlush)
+	defer depsBuilder.Shutdown()
 
 	// Apply the db migrations that will create the required tables
 	// to register users.
-	ins := es.ExtServices().Ins
+	ins := depsBuilder.ExtServices().Ins
 	if err := bundler.ApplyMigrationsFromConfig(
 		"up", viper.GetViper(), ins.L, ConfAppPrefix); err != nil {
 		panic(err)
 	}
 
-	router.Use(ginfw.ExtServicesMiddleware(es))
+	router.Use(ginfw.ExtServicesMiddleware(depsBuilder),
+		ginfw.ObsMiddleware())
 
 	// set the web dependecies:
 	redisConf := config.ReadRedisConfig(ConfAppPrefix)

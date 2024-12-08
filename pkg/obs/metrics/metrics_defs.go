@@ -1,17 +1,18 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/dhontecillas/hfw/pkg/obs/logs"
+	"github.com/dhontecillas/hfw/pkg/obs/attrs"
 )
 
 // Type definitions for the different kind of metrics available.
 const (
-	MetricTypeMonotonicCounter = iota
-	MetricTypeUpDownCounter
-	MetricTypeHistogram
-	MetricTypeDistribution
+	MetricTypeMonotonicCounter string = "counter"
+	MetricTypeHistogram        string = "histogram"
+	MetricTypeDistribution     string = "distribution"
+	MetricTypeUpDownCounter    string = "updowncounter"
 
 	MetricTypeInvalid
 )
@@ -23,111 +24,141 @@ const (
 	MetricTypeExtension = iota + 100
 )
 
+var (
+	ErrMetricNotFound  = errors.New("ErrMetricNotFound")
+	ErrMetricWrongType = errors.New("ErrMetricWrongType")
+	ErrMetricBadName   = errors.New("ErrMetricWrongType")
+
+	validMetricTypes = map[string]bool{
+		MetricTypeMonotonicCounter: true,
+		MetricTypeHistogram:        true,
+		MetricTypeDistribution:     true,
+		MetricTypeUpDownCounter:    true,
+	}
+)
+
 // Def contains the information for a metric definition.
 // It contains the name of the metric, the type, and the labels
 // that can be applied to this metric.
-type Def struct {
-	Name       string
-	MetricType int
-	Labels     []string
+type MetricDefinition struct {
+	Name         string                   `json:"name"`
+	Units        string                   `json:"units"`
+	MetricType   string                   `json:"metric_type"`
+	Attributes   attrs.AttrDefinitionList `json:"attributes"`
+	DefaultValue *string                  `json:"default"` // in case we want to set a fixed value if not set
+	Extra        map[string]interface{}   `json:"extra"`   // in extra we can define the histogram
 }
 
-func (md Def) copy() Def {
-	lbls := make([]string, len(md.Labels))
-	copy(lbls, md.Labels)
-	return Def{
-		Name:       md.Name,
-		MetricType: md.MetricType,
-		Labels:     lbls,
+func (d *MetricDefinition) CleanUp() (*MetricDefinition, []error) {
+	if len(d.Name) == 0 {
+		e := fmt.Errorf("empty metric name: %w", ErrMetricBadName)
+		return nil, []error{e}
 	}
+
+	if !validMetricTypes[d.MetricType] {
+		e := fmt.Errorf("unknown metric type: %w", ErrMetricWrongType)
+		return nil, []error{e}
+	}
+
+	// we do not apply sanitization to the metric
+	attrs, errs := d.Attributes.CleanUp()
+
+	// TODO: the default value should be sanitized to make sure is a valid
+	// value
+
+	nd := &MetricDefinition{
+		Name:         d.Name,
+		Units:        d.Units,
+		MetricType:   d.MetricType,
+		Attributes:   attrs,
+		DefaultValue: d.DefaultValue,
+		Extra:        d.Extra,
+	}
+	return nd, errs
 }
 
-// Defs defines a list of metric definitions.
-type Defs []Def
-
-// Catalog contains the list of defined metrics.
-type Catalog struct {
-	defs  Defs
-	index map[string]int
+func (d *MetricDefinition) Copy(other *MetricDefinition) {
+	if other == nil {
+		return
+	}
+	*d = *other
 }
 
-// Clean resets the MetricsCatalog leaving it empty.
-func (md Defs) Clean(l logs.Logger) Catalog {
-	if len(md) == 0 {
-		return Catalog{
-			index: map[string]int{},
-		}
-	}
+type MetricDefinitionList []*MetricDefinition
 
-	imd := Catalog{
-		defs:  make(Defs, 0, len(md)),
-		index: make(map[string]int, len(md)),
-	}
-
-	for idx, def := range md {
-		if len(def.Name) == 0 {
-			l.Warn(fmt.Sprintf("found empty name at idx %d", idx))
+func (l MetricDefinitionList) CleanUp() (MetricDefinitionList, []error) {
+	uniqueNames := map[string]int{}
+	errList := make([]error, 0, 16)
+	nl := make(MetricDefinitionList, 0, len(l))
+	for idx, md := range l {
+		// TOOD: we can apply some name sanitization for the metric
+		if ridx, ok := uniqueNames[md.Name]; ok {
+			e := fmt.Errorf("metric #%d has same name as #%d: %w", idx, ridx, ErrMetricBadName)
+			errList = append(errList, e)
 			continue
 		}
-		didx, ok := imd.index[def.Name]
-		if ok {
-			l.Warn(fmt.Sprintf("found duplicate %s (cur: %d, new: %d) at idx %d",
-				def.Name, imd.defs[didx].MetricType, def.MetricType, idx))
+
+		nmd, errs := md.CleanUp()
+		// we wrap all the errors with its own index
+		for _, e := range errs {
+			ne := fmt.Errorf("metric #%d: %w", idx, e)
+			errList = append(errList, ne)
+		}
+		if nmd == nil {
 			continue
 		}
 
-		if def.MetricType < MetricTypeMonotonicCounter || def.MetricType >= MetricTypeInvalid {
-			l.Warn(fmt.Sprintf("found non 'standard' type %d for %s at idx %d",
-				def.MetricType, def.Name, idx))
-		}
-
-		uniqueLabels := map[string]bool{}
-		for _, l := range def.Labels {
-			uniqueLabels[l] = true
-		}
-		labelsCopy := make([]string, 0, len(uniqueLabels))
-		for k := range uniqueLabels {
-			labelsCopy = append(labelsCopy, k)
-		}
-
-		imd.index[def.Name] = len(imd.defs)
-		imd.defs = append(imd.defs, Def{
-			Name:       def.Name,
-			MetricType: def.MetricType,
-			Labels:     labelsCopy,
-		})
+		uniqueNames[md.Name] = idx
+		nl = append(nl, nmd)
 	}
-	return imd
+
+	return nl, errList
 }
 
 // Merge adds metrics definitions from another catalog, with
 // option of overriding an existing one if the name of the matric
 // already exists.
-func (md Defs) Merge(other Defs, override bool) Defs {
-	byName := make(map[string]int, len(md))
-	newMD := make(Defs, 0, len(md)+len(other))
-	for idx, m := range md {
-		byName[m.Name] = idx
-		newMD = append(newMD, m.copy())
-	}
-	for _, om := range other {
-		idx, ok := byName[om.Name]
-		if ok {
+func (l MetricDefinitionList) Merge(other MetricDefinitionList, override bool) MetricDefinitionList {
+	cleanOther, _ := other.CleanUp()
+
+	toAppend := make(MetricDefinitionList, 0, len(other))
+	// n 2  search , we assume small amount of entries:
+	for _, o := range cleanOther {
+		if fo, _, err := l.Def(o.Name); err != nil {
 			if override {
-				newMD[idx] = om.copy()
+				*fo = *o
 			}
-		} else {
-			newMD = append(newMD, om.copy())
+			continue
 		}
+		toAppend = append(toAppend, o)
 	}
-	return newMD
+	merged := l
+	return append(merged, toAppend...)
 }
 
 // Def returns a metric definition by its name.
-func (mc *Catalog) Def(name string) (*Def, int) {
-	idx, ok := mc.index[name]
-	if !ok || idx < 0 {
-		return nil, -1
+func (l MetricDefinitionList) Def(name string, validTypes ...string) (*MetricDefinition, int, error) {
+	foundIdx := -1
+	for idx, md := range l {
+		if md.Name == name {
+			foundIdx = idx
+			break
+		}
 	}
-	return &mc.defs[idx], idx
+
+	if foundIdx < 0 {
+		return nil, -1, ErrMetricNotFound
+	}
+
+	found := l[foundIdx]
+	if len(validTypes) == 0 {
+		return found, foundIdx, nil
+	}
+
+	for _, vt := range validTypes {
+		if found.MetricType == vt {
+			return found, foundIdx, nil
+		}
+	}
+	return nil, -1, ErrMetricWrongType
 }

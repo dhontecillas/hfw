@@ -1,6 +1,8 @@
 package traces
 
 import (
+	"context"
+
 	"github.com/dhontecillas/hfw/pkg/obs/logs"
 )
 
@@ -16,40 +18,31 @@ func NewNopTracerBuilder() TracerBuilderFn {
 }
 
 // Start begins a tracer span.
-func (t *NopTracer) Start(name string) Tracer {
-	return &NopTracer{}
+func (t *NopTracer) Start(ctx context.Context, name string,
+	attrs map[string]interface{}) Tracer {
+
+	return t
 }
 
 // End marks the end of this span.
-func (t *NopTracer) End() {
-}
+func (t *NopTracer) End() {}
 
 // TraceID returns the ID for the current trace.
-func (t *NopTracer) TraceID() string {
-	return ""
-}
+func (t *NopTracer) TraceID() string { return "" }
 
 // Str adds a tag to the trace of type string.
-func (t *NopTracer) Str(key, val string) Tracer {
-	return t
-}
+func (t *NopTracer) Str(key, val string) {}
 
 // I64 adds a tag to the trace of type int64.
-func (t *NopTracer) I64(key string, val int64) Tracer {
-	return t
-}
+func (t *NopTracer) I64(key string, val int64) {}
 
 // F64 adds a tag to the trace of type float64.
-func (t *NopTracer) F64(key string, val float64) Tracer {
-	return t
-}
+func (t *NopTracer) F64(key string, val float64) {}
 
 // Bool adds a tag to the trace of type bool.
-func (t *NopTracer) Bool(key string, val bool) Tracer {
-	return t
-}
+func (t *NopTracer) Bool(key string, val bool) {}
+
+func (t *NopTracer) SetAttrs(attrMap map[string]interface{}) {}
 
 // Err adds an error to the trace.
-func (t *NopTracer) Err(err error) Tracer {
-	return t
-}
+func (t *NopTracer) Err(err error) {}
