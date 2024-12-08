@@ -48,7 +48,7 @@ func (t *tokenAPI) CreateKey(userID ids.ID, description string) (*APIKey, error)
 	idGen := ids.NewIDGenerator()
 	key, err := idGen.New()
 	if err != nil {
-		t.ins.L.Err(err, "cannot create unique id")
+		t.ins.L.Err(err, "cannot create unique id", nil)
 		return nil, err
 	}
 	t.ins.L.Warn("create key", map[string]interface{}{
@@ -65,7 +65,7 @@ func (t *tokenAPI) CreateKey(userID ids.ID, description string) (*APIKey, error)
 func (t *tokenAPI) ListKeys(userID ids.ID, onlyActive bool) ([]APIKey, error) {
 	keys, err := t.repo.ListKeys(userID)
 	if err != nil {
-		t.ins.L.Err(err, "cannot list user keys")
+		t.ins.L.Err(err, "cannot list user keys", nil)
 		return nil, err
 	}
 	return keys, err
@@ -74,7 +74,7 @@ func (t *tokenAPI) ListKeys(userID ids.ID, onlyActive bool) ([]APIKey, error) {
 func (t *tokenAPI) DeleteKey(userID ids.ID, key ids.ID) error {
 	err := t.repo.DeleteUserKey(userID, key)
 	if err != nil {
-		t.ins.L.Err(err, "cannot delete key")
+		t.ins.L.Err(err, "cannot delete key", nil)
 		return err
 	}
 	return nil
@@ -83,7 +83,7 @@ func (t *tokenAPI) DeleteKey(userID ids.ID, key ids.ID) error {
 func (t *tokenAPI) GetKey(key ids.ID) (*APIKey, error) {
 	res, err := t.repo.GetKey(key)
 	if err != nil {
-		t.ins.L.Err(err, "cannot get key")
+		t.ins.L.Err(err, "cannot get key", nil)
 		return nil, err
 	}
 	return res, nil

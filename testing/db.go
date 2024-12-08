@@ -63,8 +63,7 @@ func BuildExternalServices() *extdeps.ExternalServicesBuilder {
 	logFn := logs.NewNopLoggerBuilder()
 	meterFn, _ := metrics.NewNopMeterBuilder()
 	tracerFn := traces.NewNopTracerBuilder()
-	insBuilderFn := obs.NewInsighterBuilder([]obs.TagDefinition{},
-		logFn, meterFn, tracerFn)
+	insBuilderFn := obs.NewInsighterBuilder(logFn, meterFn, tracerFn)
 
 	sqlConf := testDBConfig()
 

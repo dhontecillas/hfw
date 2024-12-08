@@ -58,13 +58,16 @@ func (a *AppUpdater) Launch() {
 	a.w.SetMaxEvents(20)
 
 	if err := a.w.AddRecursive(a.conf.ExecDir); err != nil {
-		a.ins.L.Err(err, fmt.Sprintf("cannot add recursive dir %s : %s",
-			a.conf.ExecDir, err.Error()))
+		a.ins.L.Err(err, "cannot add recursive dir", map[string]interface{}{
+			"exec_dir": a.conf.ExecDir,
+			"error":    err.Error(),
+		})
 	}
 	for _, pkgDir := range a.conf.PkgsDirs {
 		if err := a.w.AddRecursive(pkgDir); err != nil {
-			a.ins.L.Err(err, fmt.Sprintf("cannot add recursive dir %s : %s",
-				pkgDir, err.Error()))
+			a.ins.L.Err(err, "cannot add recursive dir", map[string]interface{}{
+				"pkg_dir": pkgDir,
+			})
 		}
 	}
 
@@ -81,7 +84,7 @@ func (a *AppUpdater) Launch() {
 
 	go a.procWatcherEvents()
 	if err := a.w.Start(time.Second); err != nil {
-		a.ins.L.Err(err, fmt.Sprintf("cannot start watcher: %s", err.Error()))
+		a.ins.L.Err(err, fmt.Sprintf("cannot start watcher: %s", err.Error()), nil)
 	}
 	a.w.Wait()
 }
@@ -99,7 +102,7 @@ func (a *AppUpdater) procWatcherEvents() {
 				a.procRegularFile(&event)
 			}
 		case err := <-a.w.Error:
-			a.ins.L.Err(err, "watching event")
+			a.ins.L.Err(err, "watching event", nil)
 		case <-a.w.Closed:
 			return
 		}
@@ -110,7 +113,7 @@ func (a *AppUpdater) procRegularFile(event *watcher.Event) {
 	nm := event.Name()
 	for _, ext := range a.conf.BuildFileExts {
 		if strings.HasSuffix(nm, ext) {
-			a.ins.L.Info(fmt.Sprintf("rebuilding for %s", event.String()))
+			a.ins.L.Info(fmt.Sprintf("rebuilding for %s", event.String()), nil)
 			a.RebuildAndRelaunch()
 			return
 		}
@@ -134,7 +137,7 @@ func (a *AppUpdater) RebuildAndRelaunch() {
 		a.killCurrentExecutable()
 		a.launchExecutable()
 	} else {
-		a.ins.L.Err(fmt.Errorf("build failed"), "")
+		a.ins.L.Err(fmt.Errorf("build failed"), "", nil)
 	}
 }
 
@@ -149,29 +152,29 @@ func (a *AppUpdater) killCurrentExecutable() {
 
 	// kill the proces, first try Signaling and then Kill ?
 	if err := a.runningCmd.Process.Signal(os.Interrupt); err != nil {
-		a.ins.L.Err(err, "SIGINT failed")
+		a.ins.L.Err(err, "SIGINT failed", nil)
 	}
 	// wait a second for "clean
 	time.Sleep(time.Second)
 	if err := a.runningCmd.Process.Kill(); err != nil {
-		a.ins.L.Err(err, "Process Kill failed")
+		a.ins.L.Err(err, "Process Kill failed", nil)
 	}
 }
 
 // buildExecutable re-compiles the executable and returns
 // true if it finished without issues
 func (a *AppUpdater) buildExecutable() bool {
-	a.ins.L.Info("building executable")
+	a.ins.L.Info("building executable", nil)
 	buildCmd := exec.Command("go", "build", "-o",
 		fmt.Sprintf("./dev_%s", filepath.Base(a.conf.ExecDir)),
 		a.conf.ExecDir)
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
-		a.ins.L.Warn(fmt.Sprintf("Build failed: %s", err.Error()))
+		a.ins.L.Warn(fmt.Sprintf("Build failed: %s", err.Error()), nil)
 		return false
 	}
-	a.ins.L.Info("Build completed")
+	a.ins.L.Info("Build completed", nil)
 	return true
 }
 
@@ -199,19 +202,19 @@ func (a *AppUpdater) UpdateResource(e *watcher.Event) {
 	}
 	dataDirs := bundler.DataDirs()
 
-	a.ins.L.Warn(fmt.Sprintf("update %s", e.Path))
+	a.ins.L.Warn(fmt.Sprintf("update %s", e.Path), nil)
 	for dst, dir := range dataDirs {
 		if idx := strings.Index(e.Path, dir); idx >= 0 {
 			dstPath := filepath.Join(a.conf.BundleDir, dst, e.Path[idx+len(dir):])
 			parentDir := filepath.Dir(dstPath)
 			if err := os.MkdirAll(parentDir, 0775); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error creating parent dir %s: %s",
-					parentDir, err.Error()))
+					parentDir, err.Error()), nil)
 				continue
 			}
 			if err := bundler.CopyFile(e.Path, dstPath); err != nil {
 				a.ins.L.Err(err, fmt.Sprintf("error copying file %s to %s: %s",
-					e.Path, dstPath, err.Error()))
+					e.Path, dstPath, err.Error()), nil)
 			}
 		}
 	}
