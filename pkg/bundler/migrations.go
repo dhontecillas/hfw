@@ -90,12 +90,12 @@ func UpdateMigrations(dstDir string, scanDirs []string, l logs.Logger) error {
 		ex, ok := existing[srcBaseName]
 		if ok {
 			if ex.Up.Hash != srcM.Up.Hash {
-				issues = append(issues, fmt.Errorf("different Up Hashes for %s and %s",
-					ex.Up.FullPathFile, srcM.Up.Hash))
+				issues = append(issues, fmt.Errorf("different Up Hashes for %s is %s: existing %s",
+					ex.Up.FullPathFile, ex.Up.Hash, srcM.Up.Hash))
 			}
 			if ex.Down.Hash != srcM.Down.Hash {
-				issues = append(issues, fmt.Errorf("different Down Hashes for %s and %s",
-					ex.Down.FullPathFile, srcM.Down.Hash))
+				issues = append(issues, fmt.Errorf("different Down Hashes for %s is %s: existing %s",
+					ex.Down.FullPathFile, ex.Down.Hash, srcM.Down.Hash))
 			}
 		} else {
 			mIdx := (now+serial)*100000 + srcM.Up.Idx
