@@ -10,6 +10,8 @@ type MapConf struct {
 	mi map[string]any
 }
 
+var _ ConfLoader = (*MapConf)(nil)
+
 func newMapConf(data map[string]any) *MapConf {
 	if data == nil {
 		data = make(map[string]any)
@@ -82,7 +84,7 @@ func (m *MapConf) Get(path []string) (any, error) {
 	return i, nil
 }
 
-func (m *MapConf) Section(path []string) (*MapConf, error) {
+func (m *MapConf) section(path []string) (*MapConf, error) {
 	miAny, err := m.Get(path)
 	if err != nil {
 		return nil, fmt.Errorf("section %s not found: %s",
@@ -98,8 +100,37 @@ func (m *MapConf) Section(path []string) (*MapConf, error) {
 	}, nil
 }
 
-func (m *MapConf) Merge(other *MapConf, overwrite bool) {
-	// TODO
+func (m *MapConf) Section(path []string) (ConfLoader, error) {
+	return m.section(path)
+}
+
+// merges with override
+func (m *MapConf) merge(a, b map[string]any) {
+	for bkey, bval := range b {
+		aval, ok := a[bkey]
+		if !ok {
+			// TODO: warning, we are not doing deep copy !
+			aval = bval
+			a[bkey] = aval
+			continue
+		}
+		bMap, isBMap := bval.(map[string]any)
+		if !isBMap {
+			a[bkey] = bval
+			continue
+		}
+		aMap, isAMap := aval.(map[string]any)
+		if !isAMap {
+			a[bkey] = bval
+			continue
+		}
+		m.merge(aMap, bMap)
+	}
+}
+
+func (m *MapConf) Merge(other *MapConf) {
+	m.merge(m.mi, other.mi)
+	fmt.Printf("\nmerged: \n%#v\n", m.mi)
 }
 
 func (m *MapConf) Parse(target any) error {

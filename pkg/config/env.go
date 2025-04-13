@@ -16,11 +16,7 @@ func newMapConfFromEnv(prefix string, separator string) *MapConf {
 	envVars := os.Environ()
 	mc := newMapConf(nil)
 	for _, ev := range envVars {
-		lev := strings.ToLower(ev)
-		if !strings.HasPrefix(lev, lowPrefix) {
-			continue
-		}
-		keyVal := strings.Split(lev, "=")
+		keyVal := strings.Split(ev, "=")
 		if len(keyVal) != 2 {
 			// TODO: this might be removes the ability to set
 			// some value to an empty string ? put a test case for this
@@ -28,7 +24,12 @@ func newMapConfFromEnv(prefix string, separator string) *MapConf {
 		}
 		key := keyVal[0]
 		val := keyVal[1]
-		path := strings.Split(key, lowSeparator)
+
+		lkey := strings.ToLower(key)
+		if !strings.HasPrefix(lkey, lowPrefix) {
+			continue
+		}
+		path := strings.Split(lkey, lowSeparator)
 		if len(path) <= 0 {
 			// this should never happen
 			// panic("WARNING: invariant not fullfilled")
