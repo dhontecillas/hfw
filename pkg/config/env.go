@@ -5,13 +5,7 @@ import (
 	"strings"
 )
 
-type EnvLoader struct {
-	mc MapConf
-}
-
-func newEnvConfLoader(prefix string, separator string) *EnvLoader {
-	el := &EnvLoader{}
-
+func newMapConfFromEnv(prefix string, separator string) *MapConf {
 	lowPrefix := strings.ToLower(prefix)
 	lowSeparator := strings.ToLower(separator)
 
@@ -20,6 +14,7 @@ func newEnvConfLoader(prefix string, separator string) *EnvLoader {
 	}
 
 	envVars := os.Environ()
+	mc := newMapConf(nil)
 	for _, ev := range envVars {
 		lev := strings.ToLower(ev)
 		if !strings.HasPrefix(lev, lowPrefix) {
@@ -36,7 +31,11 @@ func newEnvConfLoader(prefix string, separator string) *EnvLoader {
 		path := strings.Split(key, lowSeparator)
 		if len(path) <= 0 {
 			// this should never happen
-			panic("WARNING: invariant not fullfilled")
+			// panic("WARNING: invariant not fullfilled")
+			// TODO: emit a warning ?
+			// TODO: check valid characters in paths ???
+			// empty strings ??
+			continue
 		}
 		nonEmptyPath := make([]string, 0, len(path)-1)
 		// TODO: check if we want the prefix as the root key in the map
@@ -49,8 +48,7 @@ func newEnvConfLoader(prefix string, separator string) *EnvLoader {
 		if len(nonEmptyPath) == 0 {
 			continue
 		}
-		el.mc.Set(nonEmptyPath, val)
+		mc.Set(nonEmptyPath, val)
 	}
-
-	return el
+	return mc
 }

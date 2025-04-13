@@ -1,16 +1,22 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type MapConf struct {
 	mi map[string]any
 }
 
-func newMapConf() *MapConf {
+func newMapConf(data map[string]any) *MapConf {
+	if data == nil {
+		data = make(map[string]any)
+	}
+	// TODO: should we make a deep copy ?
 	return &MapConf{
-		mi: make(map[string]any),
+		mi: data,
 	}
 }
 
@@ -74,4 +80,36 @@ func (m *MapConf) Get(path []string) (any, error) {
 		}
 	}
 	return i, nil
+}
+
+func (m *MapConf) Section(path []string) (*MapConf, error) {
+	miAny, err := m.Get(path)
+	if err != nil {
+		return nil, fmt.Errorf("section %s not found: %s",
+			strings.Join(path, "->"), err.Error())
+	}
+	mi, ok := miAny.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("section %s not map interface",
+			strings.Join(path, "->"))
+	}
+	return &MapConf{
+		mi: mi,
+	}, nil
+}
+
+func (m *MapConf) Merge(other *MapConf, overwrite bool) {
+	// TODO
+}
+
+func (m *MapConf) Parse(target any) error {
+	b, err := json.Marshal(m.mi)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(b, target)
+	if err != nil {
+		return err
+	}
+	return nil
 }
