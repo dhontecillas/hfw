@@ -2,8 +2,6 @@ package config
 
 import (
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestInitSendGrid(t *testing.T) {
@@ -18,7 +16,6 @@ func TestInitSendGrid(t *testing.T) {
 		t.Errorf("Expected conf.Key to be empty")
 		return
 	}
-	viper.Set(confKey, "FOO")
 	conf, err = configSendGrid(confPrefix)
 	if err != nil {
 		t.Errorf("err is not nil: %s", err.Error())

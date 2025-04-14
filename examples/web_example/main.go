@@ -12,10 +12,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
+	"github.com/dhontecillas/hfw/pkg/db"
 	"github.com/dhontecillas/hfw/pkg/ginfw"
 	ginfwconfig "github.com/dhontecillas/hfw/pkg/ginfw/config"
 	"github.com/dhontecillas/hfw/pkg/ginfw/web"
@@ -51,15 +51,15 @@ func readWebConfig() *WebConfig {
 }
 
 func main() {
-	if err := config.InitConfig(ConfAppPrefix); err != nil {
+	cldr, err := config.InitConfig(ConfAppPrefix)
+	if err != nil {
 		panic(err.Error())
 	}
-
 	router := gin.Default()
 
 	// ReadInsightsConfig reads the configuration about where to
 	// send logs and metrics.
-	insConfig := config.ReadInsightsConfig(ConfAppPrefix)
+	insConfig := config.ReadInsightsConfig(cldr)
 
 	// From the config, we can create a function to instatiate the
 	// insights object to send metrics and logs, and also a function
@@ -67,14 +67,24 @@ func main() {
 	// pending metrics and logs before closing the app)
 	insBuilder, insFlush := config.CreateInsightsBuilder(insConfig,
 		metrics.MetricDefinitionList{})
-	depsBuilder := config.BuildExternalServices(ConfAppPrefix, insBuilder, insFlush)
+	depsBuilder := config.BuildExternalServices(cldr, insBuilder, insFlush)
 	defer depsBuilder.Shutdown()
+
+	dbConf, err := db.ReadSQLDBConfig(cldr)
+	if err != nil {
+		// we should be able to read the sql configuration
+		panic(err)
+	}
+
+	bundlerConf, err := bundler.NewBundlerConfig(cldr)
+	if err != nil {
+		panic(err)
+	}
 
 	// Apply the db migrations that will create the required tables
 	// to register users.
 	ins := depsBuilder.ExtServices().Ins
-	if err := bundler.ApplyMigrationsFromConfig(
-		"up", viper.GetViper(), ins.L, ConfAppPrefix); err != nil {
+	if err := bundler.ApplyMigrationsFromConfig(&bundlerConf.Migrations, dbConf, ins.L); err != nil {
 		panic(err)
 	}
 

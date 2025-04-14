@@ -6,7 +6,6 @@ import (
 	"github.com/dhontecillas/hfw/pkg/mailer"
 	"github.com/dhontecillas/hfw/pkg/notifications"
 	"github.com/dhontecillas/hfw/pkg/obs"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -21,16 +20,22 @@ type NotificationsConfig struct {
 
 // ReadNotificationsConfig creates a NotificationsConfig instance from
 // the existing environment or config file values.
-func ReadNotificationsConfig(ins *obs.Insighter, confPrefix string) (*NotificationsConfig, error) {
-	notificationsTemplatesDir := viper.GetString(
-		confPrefix + confKeyNotificationsTemplatesDir)
-	if len(notificationsTemplatesDir) == 0 {
-		return nil, fmt.Errorf("cannot read preferred mailer")
+func ReadNotificationsConfig(ins *obs.Insighter, cldr ConfLoader) (*NotificationsConfig, error) {
+	cldr, err := cldr.Section([]string{"notifications", "templates"})
+	if err != nil {
+		return nil, err
+	}
+	var notCfg NotificationsConfig
+	err = cldr.Parse(&notCfg)
+	if err != nil {
+		return nil, err
 	}
 
-	return &NotificationsConfig{
-		NotificationsTemplatesDir: notificationsTemplatesDir,
-	}, nil
+	if notCfg.NotificationsTemplatesDir == "" {
+		return nil, fmt.Errorf("cannot read notifications templates dir")
+	}
+
+	return &notCfg, nil
 }
 
 // CreateNotificationsComposer create a notifications.Notifier from a provided

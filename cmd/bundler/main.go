@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/viper"
-
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
@@ -22,11 +20,12 @@ func main() {
 		return
 	}
 
-	if err := config.InitConfig(confPrefix); err != nil {
+	cldr, err := config.InitConfig(confPrefix)
+	if err != nil {
 		panic(err)
 	}
 
-	insConf := config.ReadInsightsConfig(confPrefix)
+	insConf := config.ReadInsightsConfig(cldr)
 	if insConf == nil {
 		panic("insConf is null")
 	}
@@ -35,5 +34,5 @@ func main() {
 	ins := insB()
 	defer insF()
 
-	bundler.ExecuteBundlerOperations(viper.GetViper(), ins.L, confPrefix)
+	bundler.ExecuteBundlerOperations(cldr, ins.L, confPrefix)
 }

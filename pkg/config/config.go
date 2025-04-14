@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"strings"
-
-	"github.com/spf13/viper"
 
 	"github.com/dhontecillas/hfw/pkg/extdeps"
 	"github.com/dhontecillas/hfw/pkg/obs"
@@ -24,46 +24,68 @@ const (
 	BundleConfigPath = "./bundle/config"
 )
 
-// InitConfig configures the global viper instance, to look for
+// InitConfig loads the global MapConf instance, to look for
 // some files, and use environment vars (changing '_' to '.')
-// It looks for a config file (config.yaml, config.json...), in
+// It looks for a config file config.json, in
 // a couple of default directories ("./config", "./bundle/config").
 // An alternative config file can be selected using an environment
 // var: `CONFVARIANT` or `[config_prefix]CONFVARIANT`, in which
 // case the file used will be `config.[CONFCARIANT value].yaml`.
-func InitConfig(confPrefix string) error {
-	viper.AutomaticEnv()
-	replacer := strings.NewReplacer(".", "_")
-	viper.SetEnvKeyReplacer(replacer)
+func InitConfig(confPrefix string) (ConfLoader, error) {
+	envPathSep := "_"
 	confVariantKey := KeyConfVariant
 	if len(confPrefix) > 0 {
-		confVariantKey = replacer.Replace(strings.ToUpper(confPrefix)) + confVariantKey
+		confVariantKey = strings.ToUpper(confPrefix) + envPathSep + confVariantKey
 	}
-	confVariant := viper.GetString(confVariantKey) // os.Getenv(confVariantKey)
+	confFile := "config.json"
+	confVariant := os.Getenv(confVariantKey)
 	if len(confVariant) > 0 {
-		viper.SetConfigName(fmt.Sprintf("config.%s", confVariant))
-	} else {
-		viper.SetConfigName("config")
+		confFile = "config." + confVariant + ".json"
 	}
-	viper.AddConfigPath(DefaultConfigPath)
-	viper.AddConfigPath(BundleConfigPath)
 
-	err := viper.ReadInConfig()
-	if err != nil {
-		return err
+	configFilePaths := []string{
+		DefaultConfigPath,
+		BundleConfigPath,
+		".",
 	}
-	return nil
+
+	conf := newMapConf(nil)
+	var content []byte
+	var err error
+	var fullPathConfFile string
+	for _, v := range configFilePaths {
+		fullPathConfFile = path.Join(v, confFile)
+		content, err = os.ReadFile(fullPathConfFile)
+		if err == nil {
+			// TODO: log the name of the config loaded
+			// check that the logger is already set up
+			break
+		}
+	}
+	if len(content) == 0 {
+		fmt.Printf("Cannot find config file.\n")
+	} else {
+		mcJSON, err := newMapConfFromJSON(content)
+		if err != nil {
+			fmt.Printf("Cannot parse json file from: %s\n", fullPathConfFile)
+		}
+		conf.Merge(mcJSON)
+	}
+
+	mcEnv := newMapConfFromEnv(confPrefix, envPathSep)
+	conf.Merge(mcEnv)
+	return conf, nil
 }
 
 // BuildExternalServices creates an external services instance based
 // on configuration.
-func BuildExternalServices(confPrefix string,
+func BuildExternalServices(cldr ConfLoader,
 	insBuilderFn obs.InsighterBuilderFn,
 	insFlush func()) *extdeps.ExternalServicesBuilder {
 
 	ins := insBuilderFn()
 
-	mailConf, err := ReadMailerConfig(ins, confPrefix)
+	mailConf, err := ReadMailerConfig(ins, cldr)
 	if err != nil {
 		panic(fmt.Sprintf("cannot read mailer configuration: %s", err.Error()))
 	}
@@ -72,7 +94,7 @@ func BuildExternalServices(confPrefix string,
 		panic(fmt.Sprintf("cannot configure mailer: %s", err.Error()))
 	}
 
-	dbConf, err := ReadSQLDBConfig(confPrefix)
+	dbConf, err := ReadSQLDBConfig(cldr)
 	if err != nil {
 		panic(fmt.Sprintf("cannot read sql db config: %s", err.Error()))
 	}
@@ -81,7 +103,7 @@ func BuildExternalServices(confPrefix string,
 		panic("cannot create sql db connection")
 	}
 
-	notificationsConf, err := ReadNotificationsConfig(ins, confPrefix)
+	notificationsConf, err := ReadNotificationsConfig(ins, cldr)
 	if err != nil {
 		panic("cannot read notifications config")
 	}

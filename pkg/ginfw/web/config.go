@@ -3,7 +3,7 @@ package web
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
+	"github.com/dhontecillas/hfw/pkg/config"
 )
 
 const (
@@ -24,46 +24,52 @@ const (
 // Config contains the information about a web
 // service to run.
 type Config struct {
-	Port             int
-	Host             string
-	HTMLTemplatesDir string
-	ServeStatic      bool
-	StaticDir        string
+	Port             int    `json:"port"`
+	Host             string `json:"host"`
+	HTMLTemplatesDir string `json:"htmltemplates"`
+	ServeStatic      bool   `json:"servestatic"`
+	StaticDir        string `json:"staticdir"`
+}
+
+func (c *Config) Validate() error {
+	if c.Port <= 0 {
+		c.Port = 7777
+	}
+	if c.Port > 65536 {
+		return fmt.Errorf("bad port number")
+	}
+	if c.Host == "" {
+		c.Host = "127.0.0.1"
+	}
+	if c.HTMLTemplatesDir == "" {
+		c.HTMLTemplatesDir = "./data/HTML_templates"
+	}
+	if c.StaticDir == "" {
+		c.StaticDir = "./data/static"
+	}
+	return nil
 }
 
 // NewDefaultConfig creates the default configuration
-// for a service to run.
-func NewDefaultConfig(confPrefix string) *Config {
-	conf := &Config{
+// for a service to run.string
+func NewDefaultConfig(cldr config.ConfLoader) *Config {
+	onErrConf := &Config{
 		Port:             7777,
 		Host:             "127.0.0.1",
 		HTMLTemplatesDir: "./data/HTML_templates",
 		ServeStatic:      false,
 		StaticDir:        "./data/static",
 	}
-
-	staticDir := viper.GetString(confPrefix + KeyStaticDir)
-	if len(staticDir) > 0 {
-		conf.ServeStatic = true
-		conf.StaticDir = staticDir
+	var conf Config
+	err := cldr.Parse(&conf)
+	if err != nil {
+		return onErrConf
 	}
-
-	HTMLTemplatesDir := viper.GetString(confPrefix + KeyHTMLTemplatesDir)
-	if len(HTMLTemplatesDir) > 0 {
-		conf.HTMLTemplatesDir = HTMLTemplatesDir
+	err = conf.Validate()
+	if err != nil {
+		return onErrConf
 	}
-
-	port := viper.GetInt(confPrefix + KeyPort)
-	if port > 0 && port < 65535 {
-		conf.Port = port
-	}
-
-	host := viper.GetString(confPrefix + KeyHost)
-	if len(host) > 0 {
-		conf.Host = host
-	}
-
-	return conf
+	return &conf
 }
 
 // Address returns the address of the web service
