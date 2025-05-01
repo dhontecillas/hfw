@@ -23,8 +23,8 @@ const (
 )
 
 type MailerAddressConfig struct {
-	Address string `json:"from_address"`
-	Name    string `json:"from_name"`
+	Address string `json:"address"`
+	Name    string `json:"name"`
 }
 
 // MailerConfig contains the selected mailer configuration

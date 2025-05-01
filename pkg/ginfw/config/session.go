@@ -55,7 +55,7 @@ func ReadSessionConf(ins *obs.Insighter, cldr config.ConfLoader,
 		ins.L.Err(err, "cannot read ginfw session", nil)
 		return nil, err
 	}
-	var conf GinSessionConfig 
+	var conf GinSessionConfig
 	if err := cldr.Parse(&conf); err != nil {
 		ins.L.Err(err, "cannot parse ginfw session", nil)
 		return nil, err
@@ -65,11 +65,11 @@ func ReadSessionConf(ins *obs.Insighter, cldr config.ConfLoader,
 		return nil, err
 	}
 
-	if conf.Host == "" {
+	if conf.Redis.Host == "" {
 		if redisConf != nil {
-			conf.Host = redisConf.Address() 
-		} else 
-			conf.Host = confDefaultSessionRedisHost 
+			conf.Redis.Host = redisConf.Address()
+		} else {
+			conf.Redis.Host = confDefaultSessionRedisHost
 		}
 	}
 
@@ -81,6 +81,6 @@ func ReadSessionConf(ins *obs.Insighter, cldr config.ConfLoader,
 			SecretKeyPair:      conf.SecretKeyPair,
 		},
 		CsrfSecret: conf.CSRFSecret,
-		IsDevelop:  conf.IsDevelop,
+		IsDevelop:  conf.SessionIsDevelop,
 	}, nil
 }

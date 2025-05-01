@@ -5,6 +5,7 @@ import (
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
+/*
 const (
 	confKeyDBMasterName string = "db.sql.master.name"
 	confKeyDBMasterHost string = "db.sql.master.host"
@@ -12,6 +13,7 @@ const (
 	confKeyDBMasterUser string = "db.sql.master.user"
 	confKeyDBMasterPass string = "db.sql.master.pass"
 )
+*/
 
 type SQLConfig struct {
 	Master      db.Config `json:"master"`

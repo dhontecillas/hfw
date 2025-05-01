@@ -92,7 +92,7 @@ func main() {
 		ginfw.ObsMiddleware())
 
 	// set the web dependecies:
-	redisConf := config.ReadRedisConfig(ConfAppPrefix)
+	redisConf := config.ReadRedisConfig(cldr)
 	sessionConf, err := ginfwconfig.ReadSessionConf(ins, ConfAppPrefix, &redisConf)
 	if err != nil {
 		panic(err)
