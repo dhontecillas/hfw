@@ -33,7 +33,7 @@ func ReadSQLDBConfig(cldr ConfLoader) (*db.Config, error) {
 		return nil, err
 	}
 	var conf DBConfig
-	if err := cldr.Parse(conf); err != nil {
+	if err := cldr.Parse(&conf); err != nil {
 		return nil, err
 	}
 	if err = conf.SQL.Master.Validate(); err != nil {

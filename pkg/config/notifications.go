@@ -15,7 +15,7 @@ const (
 // NotificationsConfig contains the configuration for sending
 // notifications.
 type NotificationsConfig struct {
-	NotificationsTemplatesDir string
+	NotificationsTemplatesDir string `json:"dir"`
 }
 
 // ReadNotificationsConfig creates a NotificationsConfig instance from

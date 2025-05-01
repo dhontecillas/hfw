@@ -100,12 +100,12 @@ func BuildExternalServices(cldr ConfLoader,
 	}
 	sql := CreateSQLDB(ins, dbConf)
 	if sql == nil {
-		panic("cannot create sql db connection")
+		panic("cannot create sql db connection: " + err.Error())
 	}
 
 	notificationsConf, err := ReadNotificationsConfig(ins, cldr)
 	if err != nil {
-		panic("cannot read notifications config")
+		panic("cannot read notifications config: " + err.Error())
 	}
 	composer, err := CreateNotificationsComposer(ins, notificationsConf, mailer)
 	if err != nil {
