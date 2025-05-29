@@ -30,14 +30,17 @@ func (c *RedisConfig) Validate() error {
 
 // ReadRedisConfig creates a db.RedisConfig from the
 // environment or configuration file.
-func ReadRedisConfig(cldr ConfLoader) db.RedisConfig {
+func ReadRedisConfig(cldr ConfLoader) *db.RedisConfig {
 	// TODO: allow to return numbers
 	var err error
 	var conf db.RedisConfig
 	cldr, err = cldr.Section([]string{"db", "redis", "master"})
 	if err != nil {
-		return conf
+		return nil
 	}
-	cldr.Parse(&conf)
-	return conf
+	err = cldr.Parse(&conf)
+	if err != nil {
+		return nil
+	}
+	return &conf
 }

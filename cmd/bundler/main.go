@@ -6,6 +6,7 @@ import (
 
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
+	"github.com/dhontecillas/hfw/pkg/db"
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 )
 
@@ -34,5 +35,21 @@ func main() {
 	ins := insB()
 	defer insF()
 
-	bundler.ExecuteBundlerOperations(cldr, ins.L, confPrefix)
+	bundlerConfLoader, err := cldr.Section([]string{"bundler"})
+	if err != nil {
+		panic("cannot find bundler configuration")
+	}
+	dbConfLoader, err := cldr.Section([]string{"db", "sql", "master"})
+	if err != nil {
+		panic("cannot find db configuration")
+	}
+	var bundlerConf config.BundlerConfig
+	if err := bundlerConfLoader.Parse(&bundlerConf); err != nil {
+		panic("cannot load bundler config")
+	}
+	var dbConf db.Config
+	if err := dbConfLoader.Parse(&dbConf); err != nil {
+		panic("cannot load db config")
+	}
+	bundler.ExecuteBundlerOperations(&bundlerConf, &dbConf, ins.L)
 }

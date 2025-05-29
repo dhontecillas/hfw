@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -11,6 +12,8 @@ type MapConf struct {
 }
 
 var _ ConfLoader = (*MapConf)(nil)
+
+var ErrEmptyMap = errors.New("empty map")
 
 func newMapConf(data map[string]any) *MapConf {
 	if data == nil {
@@ -134,6 +137,9 @@ func (m *MapConf) Merge(other *MapConf) {
 }
 
 func (m *MapConf) Parse(target any) error {
+	if m.mi == nil {
+		return ErrEmptyMap
+	}
 	b, err := json.Marshal(m.mi)
 	if err != nil {
 		return err

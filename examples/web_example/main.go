@@ -70,21 +70,27 @@ func main() {
 	depsBuilder := config.BuildExternalServices(cldr, insBuilder, insFlush)
 	defer depsBuilder.Shutdown()
 
-	dbConf, err := db.ReadSQLDBConfig(cldr)
+	bundlerMigrationsConfLoader, err := cldr.Section([]string{"bundler", "migrations"})
 	if err != nil {
-		// we should be able to read the sql configuration
-		panic(err)
+		panic("cannot find bundler configuration")
 	}
-
-	bundlerConf, err := bundler.NewBundlerConfig(cldr)
+	dbConfLoader, err := cldr.Section([]string{"db", "sql", "master"})
 	if err != nil {
-		panic(err)
+		panic("cannot find db configuration")
+	}
+	var bundlerMigrationsConf config.BundlerMigrationsConfig
+	if err := bundlerMigrationsConfLoader.Parse(&bundlerMigrationsConf); err != nil {
+		panic("cannot load bundler config")
+	}
+	var dbConf db.Config
+	if err := dbConfLoader.Parse(&dbConf); err != nil {
+		panic("cannot load db config")
 	}
 
 	// Apply the db migrations that will create the required tables
 	// to register users.
 	ins := depsBuilder.ExtServices().Ins
-	if err := bundler.ApplyMigrationsFromConfig(&bundlerConf.Migrations, dbConf, ins.L); err != nil {
+	if err := bundler.ApplyMigrationsFromConfig(&bundlerMigrationsConf, &dbConf, ins.L); err != nil {
 		panic(err)
 	}
 
@@ -93,7 +99,7 @@ func main() {
 
 	// set the web dependecies:
 	redisConf := config.ReadRedisConfig(cldr)
-	sessionConf, err := ginfwconfig.ReadSessionConf(ins, ConfAppPrefix, &redisConf)
+	sessionConf, err := ginfwconfig.ReadSessionConf(ins, cldr, redisConf)
 	if err != nil {
 		panic(err)
 	}
