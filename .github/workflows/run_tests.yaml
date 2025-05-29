@@ -7,7 +7,7 @@ jobs:
       - name: "get go version"
         uses: actions/setup-go@v3
         with:
-          go-version: ^1.19
+          go-version: ^1.24
 
       - name: "checkout repo"
         uses: actions/checkout@v3
