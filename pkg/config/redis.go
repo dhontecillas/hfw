@@ -1,10 +1,6 @@
 package config
 
 import (
-	"strconv"
-
-	"github.com/spf13/viper"
-
 	"github.com/dhontecillas/hfw/pkg/db"
 )
 
@@ -13,20 +9,38 @@ const (
 	confKeyRedisMasterPort string = "db.redis.master.port"
 )
 
+type RedisConfig struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
+}
+
+func (c *RedisConfig) Validate() error {
+	if c.Host == "" {
+		c.Host = "localhost"
+	}
+	if c.Port < 0 || c.Port > 65536 {
+		return ErrBadPortNumber
+	}
+	if c.Port == 0 {
+		c.Port = 6379
+	}
+
+	return nil
+}
+
 // ReadRedisConfig creates a db.RedisConfig from the
 // environment or configuration file.
-func ReadRedisConfig(confPrefix string) db.RedisConfig {
-	portStr := viper.GetString(confPrefix + confKeyRedisMasterPort)
-	port, err := strconv.ParseInt(portStr, 10, 32)
-	if err != nil || port < 1 || port > 0xffff {
-		port = 6379
+func ReadRedisConfig(cldr ConfLoader) *db.RedisConfig {
+	// TODO: allow to return numbers
+	var err error
+	var conf db.RedisConfig
+	cldr, err = cldr.Section([]string{"db", "redis", "master"})
+	if err != nil {
+		return nil
 	}
-	host := viper.GetString(confPrefix + confKeyRedisMasterHost)
-	if len(host) == 0 {
-		host = "localhost"
+	err = cldr.Parse(&conf)
+	if err != nil {
+		return nil
 	}
-	return db.RedisConfig{
-		Host: host,
-		Port: int(port),
-	}
+	return &conf
 }

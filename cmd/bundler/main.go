@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/viper"
-
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
+	"github.com/dhontecillas/hfw/pkg/db"
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 )
 
@@ -22,11 +21,12 @@ func main() {
 		return
 	}
 
-	if err := config.InitConfig(confPrefix); err != nil {
+	cldr, err := config.InitConfig(confPrefix)
+	if err != nil {
 		panic(err)
 	}
 
-	insConf := config.ReadInsightsConfig(confPrefix)
+	insConf := config.ReadInsightsConfig(cldr)
 	if insConf == nil {
 		panic("insConf is null")
 	}
@@ -35,5 +35,21 @@ func main() {
 	ins := insB()
 	defer insF()
 
-	bundler.ExecuteBundlerOperations(viper.GetViper(), ins.L, confPrefix)
+	bundlerConfLoader, err := cldr.Section([]string{"bundler"})
+	if err != nil {
+		panic("cannot find bundler configuration")
+	}
+	dbConfLoader, err := cldr.Section([]string{"db", "sql", "master"})
+	if err != nil {
+		panic("cannot find db configuration")
+	}
+	var bundlerConf config.BundlerConfig
+	if err := bundlerConfLoader.Parse(&bundlerConf); err != nil {
+		panic("cannot load bundler config")
+	}
+	var dbConf db.Config
+	if err := dbConfLoader.Parse(&dbConf); err != nil {
+		panic("cannot load db config")
+	}
+	bundler.ExecuteBundlerOperations(&bundlerConf, &dbConf, ins.L)
 }

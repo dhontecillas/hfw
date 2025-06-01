@@ -12,10 +12,10 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/spf13/viper"
 
 	"github.com/dhontecillas/hfw/pkg/bundler"
 	"github.com/dhontecillas/hfw/pkg/config"
+	"github.com/dhontecillas/hfw/pkg/db"
 	"github.com/dhontecillas/hfw/pkg/ginfw"
 	ginfwconfig "github.com/dhontecillas/hfw/pkg/ginfw/config"
 	"github.com/dhontecillas/hfw/pkg/ginfw/web"
@@ -51,15 +51,15 @@ func readWebConfig() *WebConfig {
 }
 
 func main() {
-	if err := config.InitConfig(ConfAppPrefix); err != nil {
+	cldr, err := config.InitConfig(ConfAppPrefix)
+	if err != nil {
 		panic(err.Error())
 	}
-
 	router := gin.Default()
 
 	// ReadInsightsConfig reads the configuration about where to
 	// send logs and metrics.
-	insConfig := config.ReadInsightsConfig(ConfAppPrefix)
+	insConfig := config.ReadInsightsConfig(cldr)
 
 	// From the config, we can create a function to instatiate the
 	// insights object to send metrics and logs, and also a function
@@ -67,14 +67,30 @@ func main() {
 	// pending metrics and logs before closing the app)
 	insBuilder, insFlush := config.CreateInsightsBuilder(insConfig,
 		metrics.MetricDefinitionList{})
-	depsBuilder := config.BuildExternalServices(ConfAppPrefix, insBuilder, insFlush)
+	depsBuilder := config.BuildExternalServices(cldr, insBuilder, insFlush)
 	defer depsBuilder.Shutdown()
+
+	bundlerMigrationsConfLoader, err := cldr.Section([]string{"bundler", "migrations"})
+	if err != nil {
+		panic("cannot find bundler configuration")
+	}
+	dbConfLoader, err := cldr.Section([]string{"db", "sql", "master"})
+	if err != nil {
+		panic("cannot find db configuration")
+	}
+	var bundlerMigrationsConf config.BundlerMigrationsConfig
+	if err := bundlerMigrationsConfLoader.Parse(&bundlerMigrationsConf); err != nil {
+		panic("cannot load bundler config")
+	}
+	var dbConf db.Config
+	if err := dbConfLoader.Parse(&dbConf); err != nil {
+		panic("cannot load db config")
+	}
 
 	// Apply the db migrations that will create the required tables
 	// to register users.
 	ins := depsBuilder.ExtServices().Ins
-	if err := bundler.ApplyMigrationsFromConfig(
-		"up", viper.GetViper(), ins.L, ConfAppPrefix); err != nil {
+	if err := bundler.ApplyMigrationsFromConfig(&bundlerMigrationsConf, &dbConf, ins.L); err != nil {
 		panic(err)
 	}
 
@@ -82,8 +98,8 @@ func main() {
 		ginfw.ObsMiddleware())
 
 	// set the web dependecies:
-	redisConf := config.ReadRedisConfig(ConfAppPrefix)
-	sessionConf, err := ginfwconfig.ReadSessionConf(ins, ConfAppPrefix, &redisConf)
+	redisConf := config.ReadRedisConfig(cldr)
+	sessionConf, err := ginfwconfig.ReadSessionConf(ins, cldr, redisConf)
 	if err != nil {
 		panic(err)
 	}

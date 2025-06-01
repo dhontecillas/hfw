@@ -1,46 +1,37 @@
 package config
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/dhontecillas/hfw/pkg/mailer"
 	"github.com/dhontecillas/hfw/pkg/obs"
-
-	"github.com/spf13/viper"
-)
-
-const (
-	confKeySendgridKey         string = "sendgrid.key"
-	confKeySendgridSenderEmail string = "sendgrid.senderemail"
-	confKeySendgridSenderName  string = "sendgrid.sendername"
 )
 
 // SendGridConfig has the parameters to use the SendGrid service
 type SendGridConfig struct {
-	Key string
+	Key         string `json:"key"`
+	SenderEmail string `json:"senderemail"`
+	SenderName  string `json:"sendername"`
 }
 
-// configSendGrid fills a SendGridConfig struct from viper parameters
-func configSendGrid(confPrefix string) (SendGridConfig, error) {
-	if !viper.IsSet(confPrefix + confKeySendgridKey) {
-		return SendGridConfig{}, fmt.Errorf("missing sendgrid Key: %s",
-			confPrefix+confKeySendgridKey)
-	}
-	key := viper.GetString(confPrefix + confKeySendgridKey)
-
-	return SendGridConfig{
-		Key: key,
-	}, nil
-}
-
-func newSendgridMailer(ins *obs.Insighter, confPrefix string,
-	from string, name string) (mailer.Mailer, error) {
-	conf, err := configSendGrid(confPrefix)
+func configSendGrid(conf json.RawMessage) (SendGridConfig, error) {
+	var sgConf SendGridConfig
+	err := json.Unmarshal(conf, &sgConf)
 	if err != nil {
-		return nil, err
+		return sgConf, err
 	}
-	ins.L.Info(fmt.Sprintf("new sendgrid config %#v", conf), nil)
-	m, err := mailer.NewSendGridMailer(conf.Key, from, name)
-	ins.L.Info(fmt.Sprintf("created mailer: %#v", m), nil)
+	return sgConf, nil
+}
+
+func newSendgridMailer(ins *obs.Insighter, conf json.RawMessage) (mailer.Mailer, error) {
+	sgConf, err := configSendGrid(conf)
+	if err != nil {
+		ins.L.Err(err, "cannot read sendgrid config", nil)
+	}
+	m, err := mailer.NewSendGridMailer(sgConf.Key, sgConf.SenderEmail, sgConf.SenderName)
+	if err != nil {
+		ins.L.Err(err, "cannot create sendgrid mailer", nil)
+	}
+	// ins.L.Info(fmt.Sprintf("created mailer: %#v", m), nil)
 	return m, err
 }

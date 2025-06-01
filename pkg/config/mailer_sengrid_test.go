@@ -1,31 +1,25 @@
 package config
 
 import (
+	"encoding/json"
 	"testing"
-
-	"github.com/spf13/viper"
 )
 
 func TestInitSendGrid(t *testing.T) {
-	confPrefix := "test."
-	confKey := confPrefix + confKeySendgridKey
-	conf, err := configSendGrid(confPrefix)
-	if err == nil {
-		t.Errorf("Expected error for unset key: %s", confKey)
-		return
-	}
-	if len(conf.Key) != 0 {
-		t.Errorf("Expected conf.Key to be empty")
-		return
-	}
-	viper.Set(confKey, "FOO")
-	conf, err = configSendGrid(confPrefix)
+	example := json.RawMessage(`
+{
+	"key": "foo",
+	"senderemail": "m.name@example.com",
+	"sendername": "MyName"
+}`)
+
+	conf, err := configSendGrid(example)
 	if err != nil {
-		t.Errorf("err is not nil: %s", err.Error())
+		t.Errorf("Expected unexpected error: %s", err)
 		return
 	}
 	if len(conf.Key) == 0 {
-		t.Errorf("bad configuration read")
+		t.Errorf("Expected conf.Key to be empty")
 		return
 	}
 }

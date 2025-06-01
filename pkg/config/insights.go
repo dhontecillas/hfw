@@ -10,89 +10,100 @@ import (
 	metricsdefaults "github.com/dhontecillas/hfw/pkg/obs/metrics/defaults"
 	"github.com/dhontecillas/hfw/pkg/obs/traces"
 	tracesattrs "github.com/dhontecillas/hfw/pkg/obs/traces/attrs"
-	"github.com/spf13/viper"
 )
 
-const (
-	confKeyPrometheusEnabled string = "prometheus.enabled"
-	confKeyPrometheusPort    string = "prometheus.port"
-	confKeyPrometheusPath    string = "prometheus.path"
-	confKeyPrometheysPrefix  string = "prometheus.prefix"
+const ()
 
-	confKeySentryEnabled     string = "sentry.enabled"
-	confKeySentryDSN         string = "sentry.dsn"
-	confKeySentryEnvironment string = "env"
-
-	confKeyGraylogEnabled string = "graylog.enabled"
-	confKeyGraylogPort    string = "graylog.port"
-	confKeyGraylogHost    string = "graylog.host"
-	confKeyGraylogPrefix  string = "graylog.prefix"
+var (
+	ErrBadPortNumber = fmt.Errorf("bad port number")
+	ErrMissingHost   = fmt.Errorf("missing host")
+	ErrMissingDSN    = fmt.Errorf("missing DSN")
 )
+
+type InsightsPrometheusConfig struct {
+	Enabled bool   `json:"enabled"` // prometheus enabled or not
+	Port    int    `json:"port"`    // port where serving the metrics
+	Path    string `json:"path"`    // path to gather the metrics
+	Prefix  string `json:"prefix"`  // a prefix for all metrics
+}
+
+func (c *InsightsPrometheusConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.Port < 0 || c.Port > 65536 {
+		return ErrBadPortNumber
+	}
+	if c.Port == 0 {
+		c.Port = 8090 // we use 8090 as default port
+	}
+	if c.Path == "" {
+		c.Path = "/metrics"
+	}
+	return nil
+}
+
+type InsightsGraylogConfig struct {
+	Enabled bool   `json:"enabled"`
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	Prefix  string `json:"prefix"`
+	Address string // `json:"address"`
+}
+
+func (c *InsightsGraylogConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.Host == "" {
+		return ErrMissingHost
+	}
+	if c.Port < 0 || c.Port > 65536 {
+		return ErrBadPortNumber
+	}
+	if c.Port == 0 {
+		c.Port = 9000
+	}
+	c.Address = fmt.Sprintf("%s:%d", c.Host, c.Port)
+	return nil
+}
+
+type InsightsSentryConfig struct {
+	Enabled bool   `json:"enabled"`
+	DSN     string `json:"dsn"`
+	Env     string `json:"env"`
+}
+
+func (c *InsightsSentryConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if len(c.DSN) == 0 {
+		return ErrMissingDSN
+	}
+	return nil
+}
 
 // InsightsConfig holds the information for the metrics
 type InsightsConfig struct {
 	MetricDefs metrics.MetricDefinitionList
 
-	PrometheusEnabled bool   // prometheus enabled or not
-	PrometheusPort    int    // port where serving the metrics
-	PrometheusPath    string // path to gather the metrics
-	PrometheusPrefix  string // a prefix for all metrics
-
-	GraylogEnabled   bool
-	GraylogHost      string
-	GraylogPort      int
-	GraylogPrefix    string
-	GraylogAddress   string
-	GraylogConfError error
-
-	SentryEnabled bool
-	SentryDSN     string
-	SentryEnv     string
+	Prometheus InsightsPrometheusConfig `json:"prometheus"`
+	Graylog    InsightsGraylogConfig    `json:"graylog"`
+	Sentry     InsightsSentryConfig     `json:"sentry"`
 }
 
-func (ic *InsightsConfig) loadPrometheusConfig(confPrefix string) {
-	promEnabled := viper.GetBool(confPrefix + confKeyPrometheusEnabled)
-	if !promEnabled {
-		return
+func (c *InsightsConfig) Validate() error {
+	if err := c.Prometheus.Validate(); err != nil {
+		return err
 	}
-	ic.PrometheusEnabled = true
-	promPort := viper.GetInt(confPrefix + confKeyPrometheusPort)
-	if promPort < 1 && promPort > 65535 {
-		promPort = 8090
+	if err := c.Graylog.Validate(); err != nil {
+		return err
 	}
-	ic.PrometheusPort = promPort
-
-	promPath := viper.GetString(confPrefix + confKeyPrometheusPath)
-	if len(promPath) == 0 {
-		promPath = "/metrics"
+	if err := c.Sentry.Validate(); err != nil {
+		return err
 	}
-	ic.PrometheusPath = promPath
-
-	ic.PrometheusPrefix = viper.GetString(confPrefix + confKeyPrometheysPrefix)
-}
-
-func (ic *InsightsConfig) loadGraylogConfig(confPrefix string) {
-	ic.GraylogEnabled = viper.GetBool(confKeyGraylogEnabled)
-	ic.GraylogHost = viper.GetString(confKeyGraylogHost)
-	ic.GraylogPort = viper.GetInt(confKeyGraylogPort)
-	ic.GraylogPrefix = viper.GetString(confKeyGraylogPrefix)
-
-	if ic.GraylogEnabled {
-		if ic.GraylogHost != "" && ic.GraylogPort > 0 {
-			ic.GraylogAddress = fmt.Sprintf("%s:%d", ic.GraylogHost, ic.GraylogPort)
-		} else {
-			ic.GraylogConfError = fmt.Errorf(
-				"graylog enabled and configuration not provided")
-		}
-	}
-}
-
-func (ic *InsightsConfig) loadSentryConfig(confPrefix string) {
-	ic.SentryEnabled = viper.GetBool(confPrefix + confKeySentryEnabled)
-	if ic.SentryEnabled {
-		ic.SentryDSN = viper.GetString(confPrefix + confKeySentryDSN)
-		ic.SentryEnv = viper.GetString(confPrefix + confKeySentryEnvironment)
-	}
+	return nil
 }
 
 func defaultMetricsConfig() metrics.MetricDefinitionList {
@@ -103,14 +114,22 @@ func defaultMetricsConfig() metrics.MetricDefinitionList {
 // ReadInsightsConfig reads the configuration for "routing" the
 // tags to different subsystems (logs, metrics, traces). It also
 // loads the configuration for logs / metrics / traces services.
-func ReadInsightsConfig(confPrefix string) *InsightsConfig {
-	conf := &InsightsConfig{
-		MetricDefs: defaultMetricsConfig(),
+func ReadInsightsConfig(cldr ConfLoader) *InsightsConfig {
+	var err error
+	conf := InsightsConfig{}
+	defer func() {
+		conf.MetricDefs = defaultMetricsConfig()
+	}()
+
+	cldr, err = cldr.Section([]string{"insights"})
+	if err != nil {
+		return &conf
 	}
-	conf.loadPrometheusConfig(confPrefix)
-	conf.loadGraylogConfig(confPrefix)
-	conf.loadSentryConfig(confPrefix)
-	return conf
+	if err := cldr.Parse(&conf); err != nil {
+		conf.MetricDefs = defaultMetricsConfig()
+	}
+	conf.Validate()
+	return &conf
 }
 
 // CreateInsightsBuilder creates a InsigheterBuilderFn and a flush
@@ -150,8 +169,8 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 	loggerBuilders := []logs.LoggerBuilderFn{}
 	logrusBuilder, logrusFlush, err := logs.NewLogrusBuilder(&logs.LogrusConf{
 		OutFileName:        "",
-		GraylogHost:        conf.GraylogAddress,
-		GraylogFieldPrefix: conf.GraylogPrefix,
+		GraylogHost:        conf.Graylog.Address,
+		GraylogFieldPrefix: conf.Graylog.Prefix,
 	})
 	if err != nil {
 		panic(fmt.Sprintf("cannot build logger: %s", err.Error()))
@@ -162,13 +181,13 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 	l := logrusBuilder()
 	loggerBuilders = append(loggerBuilders, logrusBuilder)
 
-	if conf.SentryEnabled {
+	if conf.Sentry.Enabled {
 		sentryConf := &logs.SentryConf{
-			Dsn:              conf.SentryDSN,
+			Dsn:              conf.Sentry.DSN,
 			AttachStacktrace: true,
 			SampleRate:       1.0,
 			// Release:       this should be a commit hash or something like that
-			Environment:      conf.SentryEnv,
+			Environment:      conf.Sentry.Env,
 			FlushTimeoutSecs: 2,
 			LevelThreshold:   "warning",
 			AllowedTags: []string{
@@ -201,12 +220,12 @@ func newLoggerBuilder(conf *InsightsConfig) (logs.LoggerBuilderFn, func()) {
 
 func newMeterBuilder(l logs.Logger, conf *InsightsConfig) (metrics.MeterBuilderFn, func()) {
 	var enabledMeters []metrics.MeterBuilderFn
-	if conf.PrometheusEnabled {
-		strPort := fmt.Sprintf(":%d", conf.PrometheusPort)
+	if conf.Prometheus.Enabled {
+		strPort := fmt.Sprintf(":%d", conf.Prometheus.Port)
 		promConf := &metrics.PrometheusConfig{
 			ServerPort:    strPort,
-			ServerPath:    conf.PrometheusPath,
-			MetricsPrefix: conf.PrometheusPrefix,
+			ServerPath:    conf.Prometheus.Path,
+			MetricsPrefix: conf.Prometheus.Prefix,
 		}
 
 		promMeterBuilder, err := metrics.NewPrometheusMeterBuilder(l, promConf,
