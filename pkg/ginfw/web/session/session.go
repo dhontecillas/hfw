@@ -8,7 +8,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
-	csrf "github.com/utrack/gin-csrf"
+	// csrf "github.com/utrack/gin-csrf"
 
 	"github.com/dhontecillas/hfw/pkg/ginfw/auth"
 	"github.com/dhontecillas/hfw/pkg/ids"
@@ -25,6 +25,7 @@ var LogInSession redis.Store
 type RedisConf struct {
 	MaxIdleConnections int
 	Host               string
+	User               string
 	Password           string
 	SecretKeyPair      string
 }
@@ -40,7 +41,7 @@ type Conf struct {
 func Setup(conf *Conf) error {
 	var err error
 	LogInSession, err = redis.NewStore(conf.RedisConf.MaxIdleConnections, "tcp",
-		conf.RedisConf.Host, conf.RedisConf.Password,
+		conf.RedisConf.Host, conf.RedisConf.User, conf.RedisConf.Password,
 		[]byte(conf.RedisConf.SecretKeyPair))
 	return err
 }
@@ -52,13 +53,15 @@ func Use(r gin.IRoutes, conf *Conf) {
 		panic(fmt.Sprintf("cannot set up session\n%#v\n: %s", *conf, err.Error()))
 	}
 	r.Use(sessions.Sessions(keySessionName, LogInSession))
-	r.Use(csrf.Middleware(csrf.Options{
-		Secret: conf.CsrfSecret,
-		ErrorFunc: func(c *gin.Context) {
-			c.String(400, "Bad CSRF token")
-			c.Abort()
-		},
-	}))
+	/*
+		r.Use(csrf.Middleware(csrf.Options{
+			Secret: conf.CsrfSecret,
+			ErrorFunc: func(c *gin.Context) {
+				c.String(400, "Bad CSRF token")
+				c.Abort()
+			},
+		}))
+	*/
 }
 
 // GetUserID returns the user ID of an authenticated request
@@ -90,7 +93,7 @@ func SetUserID(c *gin.Context, userID string) {
 
 // GetCSRFTokenInput returns a hidden input tag with the token
 func GetCSRFTokenInput(c *gin.Context) template.HTML {
-	token := csrf.GetToken(c)
+	token := "tkn" // csrf.GetToken(c)
 	inputTag := fmt.Sprintf("<input type=\"hidden\" name=\"_csrf\" value=\"%s\">", token)
 	return template.HTML(inputTag)
 }

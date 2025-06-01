@@ -1,15 +1,11 @@
 package config
 
 import (
-	"fmt"
-	"strconv"
-
-	"github.com/spf13/viper"
-
 	"github.com/dhontecillas/hfw/pkg/db"
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
+/*
 const (
 	confKeyDBMasterName string = "db.sql.master.name"
 	confKeyDBMasterHost string = "db.sql.master.host"
@@ -17,43 +13,33 @@ const (
 	confKeyDBMasterUser string = "db.sql.master.user"
 	confKeyDBMasterPass string = "db.sql.master.pass"
 )
+*/
+
+type SQLConfig struct {
+	Master      db.Config `json:"master"`
+	ReadReplica db.Config `json:"readreplica"`
+}
+
+type DBConfig struct {
+	SQL SQLConfig `json:"sql"`
+}
 
 // ReadSQLDBConfig reads the configuration for the database
 // using the application configuration prefix.
-func ReadSQLDBConfig(confPrefix string) (*db.Config, error) {
+func ReadSQLDBConfig(cldr ConfLoader) (*db.Config, error) {
 	var err error
-	conf := &db.Config{}
-
-	portStr := viper.GetString(confPrefix + confKeyDBMasterPort)
-	if len(portStr) == 0 {
-		portStr = "5432"
-	}
-	port, err := strconv.ParseInt(portStr, 10, 32)
+	cldr, err = cldr.Section([]string{"db"})
 	if err != nil {
 		return nil, err
 	}
-	conf.Port = int(port)
-
-	conf.Name = viper.GetString(confPrefix + confKeyDBMasterName)
-	conf.Host = viper.GetString(confPrefix + confKeyDBMasterHost)
-	conf.User = viper.GetString(confPrefix + confKeyDBMasterUser)
-	conf.Password = viper.GetString(confPrefix + confKeyDBMasterPass)
-
-	if len(conf.Name) == 0 {
-		return nil, fmt.Errorf("missing required DB config: %s",
-			confPrefix+confKeyDBMasterName)
+	var conf DBConfig
+	if err := cldr.Parse(&conf); err != nil {
+		return nil, err
 	}
-	if len(conf.Host) == 0 {
-		return nil, fmt.Errorf("missing required DB config: %s",
-			confPrefix+confKeyDBMasterHost)
+	if err = conf.SQL.Master.Validate(); err != nil {
+		return nil, err
 	}
-	if len(conf.User) == 0 {
-		return nil, fmt.Errorf("missing required DB config: %s", confPrefix+confKeyDBMasterUser)
-	}
-	if len(conf.Password) == 0 {
-		return nil, fmt.Errorf("missing required DB config: %s", confPrefix+confKeyDBMasterPass)
-	}
-	return conf, err
+	return &conf.SQL.Master, err
 }
 
 // CreateSQLDB creates a new database connection.

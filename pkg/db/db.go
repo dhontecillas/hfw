@@ -9,6 +9,12 @@ import (
 	_ "github.com/lib/pq"
 )
 
+var (
+	ErrMissingDBName = fmt.Errorf("missing db name")
+	ErrMissingDBHost = fmt.Errorf("missing db host")
+	ErrMissingDBUser = fmt.Errorf("missing db user")
+)
+
 // SQLDB contains the connection to a master
 // database and a way to shutdown the connection
 // using Close
@@ -19,11 +25,27 @@ type SQLDB interface {
 
 // Config contains the basic DB configuration params.
 type Config struct {
-	Name     string
-	Host     string
-	Port     int
-	User     string
-	Password string
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+func (c *Config) Validate() error {
+	if c.Name == "" {
+		return ErrMissingDBName
+	}
+	if c.Host == "" {
+		return ErrMissingDBHost
+	}
+	if c.Port == 0 {
+		c.Port = 5432
+	}
+	if c.User == "" {
+		return ErrMissingDBUser
+	}
+	return nil
 }
 
 // sqlDB implments the SQLDB interface

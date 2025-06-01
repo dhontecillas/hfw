@@ -3,68 +3,84 @@ package ginfwconfig
 import (
 	"fmt"
 
-	"github.com/spf13/viper"
-
+	"github.com/dhontecillas/hfw/pkg/config"
 	"github.com/dhontecillas/hfw/pkg/db"
 	"github.com/dhontecillas/hfw/pkg/ginfw/web/session"
 	"github.com/dhontecillas/hfw/pkg/obs"
 )
 
 const (
-	confKeySessionRedisMaxIdle  string = "ginfw.session.redis.maxidle"
-	confKeySessionRedisHost     string = "ginfw.session.redis.host"
-	confKeySessionRedisPassword string = "ginfw.session.redis.password"
-	confKeySessionSecretKeyPair string = "ginfw.session.secretkeypair"
-
-	confDefaultSessionRedisMaxIdle  string = "10"
-	confDefaultSessionRedisHost     string = "localhost:6379"
-	confDefaultSessionRedisPassword string = ""
-
-	confKeySessionCSRFSecret string = "ginfw.session.csrfsecret"
-	confKeySessionIsDevelop  string = "ginfw.session.develop"
-
-	confDefaultSessionIsDevelop string = "false"
+	confDefaultSessionRedisMaxIdle        = 10
+	confDefaultSessionRedisHost    string = "localhost:6379"
 )
+
+type GinSessionRedisConfig struct {
+	Host     string `json:"host"`
+	Password string `json:"password"`
+	MaxIdle  int    `json:"maxidle"`
+}
+
+func (c *GinSessionRedisConfig) Validate() error {
+	if c.MaxIdle <= 0 {
+		c.MaxIdle = confDefaultSessionRedisMaxIdle
+	}
+	return nil
+}
+
+type GinSessionConfig struct {
+	Redis            GinSessionRedisConfig `json:"redis"`
+	CSRFSecret       string                `json:"csrfsecret"`
+	SecretKeyPair    string                `json:"secretkeypair"`
+	SessionIsDevelop bool                  `json:"develop"`
+}
+
+func (c *GinSessionConfig) Validate() error {
+	err := c.Redis.Validate()
+	if err != nil {
+		return err
+	}
+	if c.SecretKeyPair == "" {
+		return fmt.Errorf("missing session 'secretkeypair'")
+	}
+	return nil
+}
 
 // ReadSessionConf reads the required configuration to have
 // a Seesion insttance.
-func ReadSessionConf(ins *obs.Insighter, confPrefix string,
+func ReadSessionConf(ins *obs.Insighter, cldr config.ConfLoader,
 	redisConf *db.RedisConfig) (*session.Conf, error) {
 
-	secretKeyPair := viper.GetString(confPrefix + confKeySessionSecretKeyPair)
-	if len(secretKeyPair) == 0 {
-		msg := fmt.Sprintf("cannot read required config value: %s",
-			confKeySessionSecretKeyPair)
-		err := fmt.Errorf("%s", msg)
-		ins.L.Err(err, msg, nil)
+	cldr, err := cldr.Section([]string{"ginfw", "session"})
+	if err != nil {
+		ins.L.Err(err, "cannot read ginfw session", nil)
 		return nil, err
 	}
-	CSRFSecret := viper.GetString(confPrefix + confKeySessionCSRFSecret)
-	if len(CSRFSecret) == 0 {
-		msg := fmt.Sprintf("cannot read required config value: %s",
-			confKeySessionCSRFSecret)
-		err := fmt.Errorf("%s", msg)
-		ins.L.Err(err, msg, nil)
+	var conf GinSessionConfig
+	if err := cldr.Parse(&conf); err != nil {
+		ins.L.Err(err, "cannot parse ginfw session", nil)
+		return nil, err
+	}
+	if err := conf.Validate(); err != nil {
+		ins.L.Err(err, "cannot validate ginfw session", nil)
 		return nil, err
 	}
 
-	viper.SetDefault(confPrefix+confKeySessionRedisMaxIdle, confDefaultSessionRedisMaxIdle)
-	if redisConf != nil {
-		viper.SetDefault(confPrefix+confKeySessionRedisHost, redisConf.Address())
-	} else {
-		viper.SetDefault(confPrefix+confKeySessionRedisHost, confDefaultSessionRedisHost)
+	if conf.Redis.Host == "" {
+		if redisConf != nil {
+			conf.Redis.Host = redisConf.Address()
+		} else {
+			conf.Redis.Host = confDefaultSessionRedisHost
+		}
 	}
-	viper.SetDefault(confPrefix+confKeySessionRedisPassword, confDefaultSessionRedisPassword)
-	viper.SetDefault(confPrefix+confKeySessionIsDevelop, confDefaultSessionIsDevelop)
 
 	return &session.Conf{
 		RedisConf: session.RedisConf{
-			MaxIdleConnections: viper.GetInt(confPrefix + confKeySessionRedisMaxIdle),
-			Host:               viper.GetString(confPrefix + confKeySessionRedisHost),
-			Password:           viper.GetString(confPrefix + confKeySessionRedisPassword),
-			SecretKeyPair:      secretKeyPair,
+			MaxIdleConnections: conf.Redis.MaxIdle,
+			Host:               conf.Redis.Host,
+			Password:           conf.Redis.Password,
+			SecretKeyPair:      conf.SecretKeyPair,
 		},
-		CsrfSecret: CSRFSecret,
-		IsDevelop:  false,
+		CsrfSecret: conf.CSRFSecret,
+		IsDevelop:  conf.SessionIsDevelop,
 	}, nil
 }

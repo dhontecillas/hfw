@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	csrf "github.com/utrack/gin-csrf"
+	// csrf "github.com/utrack/gin-csrf"
 )
 
 // Middleware sets up a restrictive CORS Middleware and
@@ -58,6 +58,6 @@ func GetCSRFToken(c *gin.Context) {
 	var msg struct {
 		CsrfToken string `json:"csrf_token"`
 	}
-	msg.CsrfToken = csrf.GetToken(c)
+	msg.CsrfToken = "tkn" // csrf.GetToken(c)
 	c.JSON(http.StatusOK, msg)
 }

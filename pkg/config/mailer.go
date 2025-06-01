@@ -1,9 +1,8 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
-
-	"github.com/spf13/viper"
 
 	"github.com/dhontecillas/hfw/pkg/mailer"
 	"github.com/dhontecillas/hfw/pkg/obs"
@@ -16,36 +15,49 @@ const (
 	consoleMailer   string = "console"
 	nopMailer       string = "nop"
 
+	confKeyMailer            string = "mailer"
 	confKeyMailerPreferred   string = "mailer.preferred"
 	confKeyMailerLogs        string = "mailer.logs"
 	confKeyMailerFromAddress string = "mailer.from.address"
 	confKeyMailerFromName    string = "mailer.from.name"
 )
 
+type MailerAddressConfig struct {
+	Address string `json:"address"`
+	Name    string `json:"name"`
+}
+
 // MailerConfig contains the selected mailer configuration
 type MailerConfig struct {
-	Name          string `json:"name"`
-	LogSentEmails bool   `json:"log_sent_mails"`
-	ConfPrefix    string `json:"conf_prefix"`
-	FromAddress   string `json:"from_address"`
-	FromName      string `json:"from_name"`
+	Name          string              `json:"preferred"`
+	LogSentEmails bool                `json:"logs"`
+	From          MailerAddressConfig `json:"from"`
+	Config        json.RawMessage     `json:"config"`
 }
 
 func (m *MailerConfig) String() string {
 	return fmt.Sprintf("Mailer %s (log enabled: %t) %s <%s>",
-		m.Name, m.LogSentEmails, m.FromName, m.FromAddress)
+		m.Name, m.LogSentEmails, m.From.Name, m.From.Address)
 }
 
 // ReadMailerConfig returns the name of a mailer and a boolean to select
 // if logging should be enabled
-func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, error) {
+func ReadMailerConfig(ins *obs.Insighter, conf ConfLoader) (*MailerConfig, error) {
+	conf, err := conf.Section([]string{confKeyMailer})
+	if err != nil {
+		// TODO: improve error
+		return nil, err
+	}
+	var mailerConf MailerConfig
+	err = conf.Parse(&mailerConf)
+	if err != nil {
+		return nil, err
+	}
+
 	// Allow to override mailer selection with preferredmailer and
 	// preferredmailerlogs
-	confKey := confPrefix + confKeyMailerPreferred
-	selectedMailer := viper.GetString(confKey)
-	if len(selectedMailer) == 0 {
-		return nil, fmt.Errorf("cannot read preferred mailer from %s",
-			confKey)
+	if mailerConf.Name == "" {
+		return nil, fmt.Errorf("empty preferred mailer")
 	}
 
 	allowedValues := map[string]bool{
@@ -55,33 +67,19 @@ func ReadMailerConfig(ins *obs.Insighter, confPrefix string) (*MailerConfig, err
 		consoleMailer:   true,
 		nopMailer:       true,
 	}
-	if _, ok := allowedValues[selectedMailer]; !ok {
-		msg := fmt.Sprintf("cannot find mailer: %s", selectedMailer)
-		ins.L.Panic("cannot find mailer", map[string]interface{}{
-			"mailer": selectedMailer,
-		})
-		panic(msg)
+	if _, ok := allowedValues[mailerConf.Name]; !ok {
+		err := fmt.Errorf("cannot find mailer: %s", mailerConf.Name)
+		return nil, err
 	}
-
-	confKey = confPrefix + confKeyMailerFromAddress
-	if !viper.IsSet(confKey) {
-		msg := fmt.Sprintf("cannot read mailer sender address: %s", confKey)
-		ins.L.Panic(msg, nil)
-		panic(msg)
+	if mailerConf.From.Address == "" {
+		// TODO: check with a regex that is a valid email address
+		err := fmt.Errorf("empty from address")
+		return nil, err
 	}
-	fromAddress := viper.GetString(confKey)
-	fromName := viper.GetString(confPrefix + confKeyMailerFromName)
-	if fromName == "" {
-		fromName = fromAddress
+	if mailerConf.From.Name == "" {
+		mailerConf.From.Name = mailerConf.From.Address
 	}
-
-	return &MailerConfig{
-		Name:          selectedMailer,
-		LogSentEmails: viper.GetBool(confPrefix + confKeyMailerLogs),
-		ConfPrefix:    confPrefix,
-		FromAddress:   fromAddress,
-		FromName:      fromName,
-	}, nil
+	return &mailerConf, nil
 }
 
 // CreateMailer creates a mailer from a provided MailerConfig
@@ -104,14 +102,14 @@ func CreateMailer(ins *obs.Insighter, mailerConf *MailerConfig) (mailer.Mailer, 
 	case consoleMailer:
 		m = mailer.NewConsoleMailer()
 	case mailtrapMailer:
-		m, err = newMailtrapMailer(mailerConf.ConfPrefix)
+		m, err = newMailtrapMailer(mailerConf.Config)
 	case roundCubeMailer:
 		m = mailer.NewRoundcubeMailer()
 	case nopMailer:
 		m = mailer.NewNopMailer()
 	default:
-		m, err = newSendgridMailer(ins, mailerConf.ConfPrefix,
-			mailerConf.FromAddress, mailerConf.FromName)
+		// TODO: sendgrid MUST repeat the from address inside the config
+		m, err = newSendgridMailer(ins, mailerConf.Config)
 	}
 
 	if err != nil {

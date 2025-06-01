@@ -7,10 +7,10 @@ import (
 
 // MailtrapConfig has the configurations to use the Mailtrap service
 type MailtrapConfig struct {
-	Server   string
-	Port     int
-	User     string
-	Password string
+	Server   string `json:"server"`
+	Port     int    `json:"port"`
+	User     string `json:"user"`
+	Password string `json:"password"`
 }
 
 type mailtrapMailer struct {
